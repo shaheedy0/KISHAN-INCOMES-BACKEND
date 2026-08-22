@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - KISHAN INCOME</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 flex flex-col justify-between font-sans">
+
+  <!-- Navigation Header -->
+  <header class="bg-gray-900 text-white p-4 shadow-md flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold tracking-wide">Kishan SACCO Admin Panel</h1>
+      <p class="text-xs text-gray-400">System Management & Administration</p>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="adminDisplay" class="font-medium text-sm bg-gray-800 px-3 py-1 rounded-full border border-gray-700">Admin</span>
+      <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4 flex-grow w-full space-y-8">
+    
+    <!-- Quick Stats Overview -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+        <h4 class="text-xs uppercase font-bold text-gray-500">Total Registered Members</h4>
+        <p id="statTotalUsers" class="text-2xl font-extrabold text-emerald-800 mt-1">0</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+        <h4 class="text-xs uppercase font-bold text-gray-500">Active Investment Programs</h4>
+        <p id="statTotalPrograms" class="text-2xl font-extrabold text-blue-800 mt-1">0</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+        <h4 class="text-xs uppercase font-bold text-gray-500">System Status</h4>
+        <p class="text-2xl font-extrabold text-green-600 mt-1">Operational</p>
+      </div>
+    </section>
+
+    <!-- Investment Program Management Section -->
+    <section class="bg-white rounded-xl shadow border border-gray-200 p-6">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-800">Investment Programs Management</h3>
+          <p class="text-xs text-gray-500">Create and monitor active investment offerings for members</p>
+        </div>
+        <button onclick="toggleProgramForm()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition">
+          + Add New Program
+        </button>
+      </div>
+
+      <!-- Add Program Collapsible Form -->
+      <form id="programForm" onsubmit="handleCreateProgram(event)" class="hidden bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 space-y-4">
+        <h4 class="font-bold text-sm text-gray-700 border-b pb-2">Create Investment Program</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Title</label>
+            <input type="text" id="progTitle" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Share Price (UGX)</label>
+            <input type="number" id="progPrice" required min="1" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">ROI Percentage (%)</label>
+            <input type="number" id="progRoi" step="0.1" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Lock Duration (Days)</label>
+            <input type="number" id="progDuration" required min="1" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Image URL (Optional)</label>
+            <input type="url" id="progImage" placeholder="https://..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Description</label>
+            <textarea id="progDesc" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600"></textarea>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="toggleProgramForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs px-4 py-2 rounded-lg font-bold">Cancel</button>
+          <button type="submit" id="saveProgBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-4 py-2 rounded-lg font-bold">Save Program</button>
+        </div>
+      </form>
+
+      <!-- Programs Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
+              <th class="p-3">ID</th>
+              <th class="p-3">Title</th>
+              <th class="p-3">Share Price</th>
+              <th class="p-3">ROI</th>
+              <th class="p-3">Duration</th>
+              <th class="p-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="programsTableBody" class="text-sm divide-y">
+            <tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Registered Members Section -->
+    <section class="bg-white rounded-xl shadow border border-gray-200 p-6">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-800">Registered Members</h3>
+          <p class="text-xs text-gray-500">Manage user authorization and platform permissions</p>
+        </div>
+        <div class="w-full md:w-64">
+          <input type="text" id="userSearch" oninput="filterUsers()" placeholder="Search members..." class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
+              <th class="p-3">ID</th>
+              <th class="p-3">Full Name</th>
+              <th class="p-3">Phone Number</th>
+              <th class="p-3">Role</th>
+              <th class="p-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody" class="text-sm divide-y">
+            <tr><td colspan="5" class="p-4 text-center text-gray-500">Loading member data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const API_BASE = '/api';
+    const token = localStorage.getItem('token') || localStorage.getItem('kishan_token');
+    let cachedUsers = [];
+
+    // Guard protection
+    if (!token) {
+      window.location.replace('/index.html');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('kishan_user') || '{}');
+      if (user.full_name) {
+        document.getElementById('adminDisplay').textContent = `${user.full_name} (Admin)`;
+      }
+      loadUsers();
+      loadAdminPrograms();
+    });
+
+    // 1. Fetch Users
+    async function loadUsers() {
+      try {
+        const response = await fetch(`${API_BASE}/admin/users`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        const tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = '';
+
+        const usersList = data.users || (Array.isArray(data) ? data : []);
+
+        if (response.ok && usersList.length > 0) {
+          cachedUsers = usersList;
+          document.getElementById('statTotalUsers').textContent = cachedUsers.length;
+          renderUsersTable(cachedUsers);
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">No users found or unauthorized access.</td></tr>';
+        }
+      } catch (error) {
+        console.error('Error loading users:', error);
+        document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="5" class="p-4 text-center text-red-500">Failed to connect to backend server.</td></tr>';
+      }
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('usersTableBody');
+      tbody.innerHTML = users.map(user => `
+        <tr class="hover:bg-gray-50">
+          <td class="p-3">${user.id}</td>
+          <td class="p-3 font-semibold">${user.full_name || user.full_names || 'N/A'}</td>
+          <td class="p-3 font-mono">${user.phone_number}</td>
+          <td class="p-3">
+            <span class="px-2 py-1 text-xs font-bold rounded ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+              ${user.role}
+            </span>
+          </td>
+          <td class="p-3">
+            <button onclick="toggleUserRole(${user.id}, '${user.role}')" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded font-semibold transition">
+              Switch to ${user.role === 'admin' ? 'Member' : 'Admin'}
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterUsers() {
+      const query = document.getElementById('userSearch').value.toLowerCase();
+      const filtered = cachedUsers.filter(u => 
+        (u.full_name && u.full_name.toLowerCase().includes(query)) ||
+        (u.phone_number && u.phone_number.includes(query))
+      );
+      renderUsersTable(filtered);
+    }
+
+    // 2. Investment Programs Management
+    async function loadAdminPrograms() {
+      try {
+        const res = await fetch(`${API_BASE}/investments/programs`);
+        const programs = await res.json();
+        const tbody = document.getElementById('programsTableBody');
+
+        if (Array.isArray(programs) && programs.length > 0) {
+          document.getElementById('statTotalPrograms').textContent = programs.length;
+          tbody.innerHTML = programs.map(p => `
+            <tr class="hover:bg-gray-50">
+              <td class="p-3">${p.id}</td>
+              <td class="p-3 font-semibold">${p.title}</td>
+              <td class="p-3">UGX ${Number(p.share_price).toLocaleString()}</td>
+              <td class="p-3 text-emerald-700 font-bold">+${p.roi_percentage}%</td>
+              <td class="p-3">${p.duration_days} Days</td>
+              <td class="p-3">
+                <button onclick="deleteProgram(${p.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
+                  Delete
+                </button>
+              </td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">No investment programs available.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('programsTableBody').innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-500">Failed to load programs.</td></tr>';
+      }
+    }
+
+    function toggleProgramForm() {
+      document.getElementById('programForm').classList.toggle('hidden');
+    }
+
+    async function handleCreateProgram(e) {
+      e.preventDefault();
+      const btn = document.getElementById('saveProgBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const payload = {
+        title: document.getElementById('progTitle').value.trim(),
+        share_price: parseFloat(document.getElementById('progPrice').value),
+        roi_percentage: parseFloat(document.getElementById('progRoi').value),
+        duration_days: parseInt(document.getElementById('progDuration').value),
+        image_url: document.getElementById('progImage').value.trim() || null,
+        description: document.getElementById('progDesc').value.trim()
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/programs`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Failed to create program');
+        
+        alert('Investment program created successfully!');
+        document.getElementById('programForm').reset();
+        toggleProgramForm();
+        loadAdminPrograms();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Program';
+      }
+    }
+
+    async function toggleUserRole(userId, currentRole) {
+      const newRole = currentRole === 'admin' ? 'member' : 'admin';
+      if (!confirm(`Are you sure you want to change user ID ${userId} role to ${newRole}?`)) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ role: newRole })
+        });
+
+        if (!res.ok) throw new Error('Failed to update role');
+
+        alert('Role updated successfully!');
+        loadUsers();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deleteProgram(programId) {
+      if (!confirm(`Are you sure you want to delete program ID ${programId}?`)) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/programs/${programId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to delete program');
+        
+        alert('Program deleted successfully!');
+        loadAdminPrograms();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('kishan_token');
+      localStorage.removeItem('kishan_user');
+      window.location.replace('/index.html');
+    }
+  </script>
+</body>
+</html>

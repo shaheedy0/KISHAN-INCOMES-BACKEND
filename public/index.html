@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kishan Incomes Sacco</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 flex flex-col justify-between font-sans">
+
+  <!-- Navigation Bar -->
+  <header class="bg-emerald-800 text-white p-4 shadow-md flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold tracking-wide">Kishan Incomes Sacco</h1>
+      <p class="text-xs text-emerald-200">Secure Community Growth</p>
+    </div>
+    <div id="nav-user" class="hidden flex items-center gap-4">
+      <span id="user-display" class="font-medium text-sm bg-emerald-900 px-3 py-1 rounded-full border border-emerald-700"></span>
+      <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 flex-grow w-full">
+    <!-- Member Authentication Section (Tabbed Sign In & Registration) -->
+    <section id="login-section" class="max-w-md mx-auto mt-8">
+      <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+        
+        <!-- Tab Switcher -->
+        <div class="flex border-b border-gray-200 bg-gray-50">
+          <button id="tabLogin" onclick="switchTab('login')" class="flex-1 py-3 text-center text-sm font-bold text-emerald-800 border-b-2 border-emerald-800 transition">
+            Sign In
+          </button>
+          <button id="tabRegister" onclick="switchTab('register')" class="flex-1 py-3 text-center text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-emerald-800 transition">
+            Register
+          </button>
+        </div>
+
+        <div class="p-6">
+          <!-- Status Alert Box -->
+          <div id="authAlert" class="hidden mb-4 p-3 rounded-xl text-xs font-medium"></div>
+
+          <!-- LOGIN FORM -->
+          <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+            <div class="text-center mb-2">
+              <h2 class="text-2xl font-bold text-gray-800">Member Login</h2>
+              <p class="text-xs text-gray-500">Enter your registered phone number and password</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Phone Number</label>
+              <input 
+                type="tel" 
+                id="loginPhone" 
+                placeholder="2567XXXXXXXX" 
+                required 
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Password</label>
+              <input 
+                type="password" 
+                id="loginPassword" 
+                placeholder="••••••••" 
+                required 
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none"
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              id="loginBtn"
+              class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-xl transition shadow-lg text-sm">
+              Sign In
+            </button>
+
+            <p class="text-center text-xs text-gray-500 pt-2">
+              Don't have an account? 
+              <button type="button" onclick="switchTab('register')" class="text-emerald-700 font-bold hover:underline">Register here</button>
+            </p>
+          </form>
+
+          <!-- REGISTRATION FORM -->
+          <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+            <div class="text-center mb-2">
+              <h2 class="text-2xl font-bold text-gray-800">Create Account</h2>
+              <p class="text-xs text-gray-500">Join KISHAN INCOME and start investing</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Full Name</label>
+              <input 
+                type="text" 
+                id="regName" 
+                placeholder="John Doe" 
+                required 
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Phone Number</label>
+              <input 
+                type="tel" 
+                id="regPhone" 
+                placeholder="2567XXXXXXXX" 
+                required 
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Email Address (Optional)</label>
+              <input 
+                type="email" 
+                id="regEmail" 
+                placeholder="member@example.com" 
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Password</label>
+              <input 
+                type="password" 
+                id="regPassword" 
+                placeholder="Minimum 6 characters" 
+                required 
+                minlength="6"
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none"
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              id="regBtn"
+              class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-xl transition shadow-lg text-sm">
+              Complete Registration
+            </button>
+
+            <p class="text-center text-xs text-gray-500 pt-2">
+              Already registered? 
+              <button type="button" onclick="switchTab('login')" class="text-emerald-700 font-bold hover:underline">Sign In</button>
+            </p>
+          </form>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Investment Dashboard Section -->
+    <section id="dashboard-section" class="hidden mt-6">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-800">Investment Programs</h2>
+          <p class="text-xs text-gray-500">Select a program to lock funds and earn interest</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="openInvestModal()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition flex items-center gap-1">
+            <span>+</span> Quick Buy Shares
+          </button>
+          <button onclick="loadPrograms()" class="text-xs bg-gray-200 hover:bg-gray-300 font-semibold px-3 py-2 rounded-lg transition">
+            Refresh List
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Cards Grid -->
+      <div id="programs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamic program cards inject here -->
+      </div>
+    </section>
+  </main>
+
+  <!-- EMBEDDED MODAL COMPONENT -->
+  <div id="investModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      
+      <!-- Header -->
+      <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-lg">Purchase Sacco Investment Shares</h3>
+          <p class="text-xs text-emerald-300">Lock capital to earn daily/monthly interest</p>
+        </div>
+        <button onclick="closeInvestModal()" class="text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-4">
+        
+        <div id="investAlert" class="hidden p-3 rounded-lg text-xs font-medium"></div>
+
+        <form id="investForm" onsubmit="handleInvestSubmit(event)" class="space-y-4">
+          
+          <!-- Select Program -->
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Select Program</label>
+            <select id="programSelect" onchange="calculateProjections()" class="w-full px-3 py-2.5 text-xs font-semibold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+              <option value="">Loading programs...</option>
+            </select>
+          </div>
+
+          <!-- Quantity Input -->
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Number of Shares</label>
+            <input 
+              type="number" 
+              id="shareQuantity" 
+              value="1" 
+              min="1" 
+              oninput="calculateProjections()" 
+              required 
+              class="w-full px-3 py-2.5 text-sm font-bold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+
+          <!-- Live Projection Card -->
+          <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2 text-xs">
+            <div class="flex justify-between text-gray-600">
+              <span>Price Per Share:</span>
+              <span id="projPrice" class="font-bold text-gray-800">UGX 0</span>
+            </div>
+            <div class="flex justify-between text-gray-600">
+              <span>Total Capital Required:</span>
+              <span id="projTotalCost" class="font-bold text-emerald-700">UGX 0</span>
+            </div>
+            <div class="flex justify-between text-gray-600">
+              <span>ROI Rate:</span>
+              <span id="projRoi" class="font-bold text-blue-600">+0%</span>
+            </div>
+            <div class="flex justify-between text-gray-600">
+              <span>Lock Duration:</span>
+              <span id="projDuration" class="font-bold text-gray-800">0 Days</span>
+            </div>
+            <div class="border-t border-gray-200 pt-2 flex justify-between text-sm font-extrabold text-gray-900">
+              <span>Expected Total Payout:</span>
+              <span id="projPayout" class="text-emerald-800">UGX 0</span>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button 
+            type="submit" 
+            id="buySharesBtn"
+            class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg">
+            Confirm & Pay From Wallet
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN SCRIPT BLOCK -->
+  <script>
+    const RENDER_HOST = 'https://kishan-incomes.onrender.com';
+    const API_BASE = `${RENDER_HOST}/api`;
+    let activeProgramsList = [];
+
+    // Auto-check authentication state on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('kishan_token');
+      const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+
+      if (token && user.full_name) {
+        showDashboard(user);
+      }
+    });
+
+    // Auth Tab Switcher
+    function switchTab(tab) {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const tabLogin = document.getElementById('tabLogin');
+      const tabRegister = document.getElementById('tabRegister');
+      hideAlert();
+
+      if (tab === 'register') {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        tabRegister.className = "flex-1 py-3 text-center text-sm font-bold text-emerald-800 border-b-2 border-emerald-800 transition";
+        tabLogin.className = "flex-1 py-3 text-center text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-emerald-800 transition";
+      } else {
+        registerForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        tabLogin.className = "flex-1 py-3 text-center text-sm font-bold text-emerald-800 border-b-2 border-emerald-800 transition";
+        tabRegister.className = "flex-1 py-3 text-center text-sm font-bold text-gray-500 border-b-2 border-transparent hover:text-emerald-800 transition";
+      }
+    }
+
+    // Alert Helpers
+    function showAlert(message, isError = true) {
+      const alertBox = document.getElementById('authAlert');
+      alertBox.classList.remove('hidden', 'bg-red-50', 'text-red-800', 'border-red-200', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+      alertBox.classList.add('border', isError ? 'bg-red-50' : 'bg-emerald-50', isError ? 'text-red-800' : 'text-emerald-800', isError ? 'border-red-200' : 'border-emerald-200');
+      alertBox.textContent = message;
+    }
+
+    function hideAlert() {
+      document.getElementById('authAlert').classList.add('hidden');
+    }
+
+    // Handle Member Login
+    async function handleLogin(e) {
+      e.preventDefault();
+      hideAlert();
+
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+
+      const phone = document.getElementById('loginPhone').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.message || 'Login failed');
+
+        localStorage.setItem('kishan_token', data.token);
+        localStorage.setItem('kishan_user', JSON.stringify(data.user));
+
+        showAlert('Login successful!', false);
+        setTimeout(() => {
+          showDashboard(data.user);
+        }, 800);
+
+      } catch (err) {
+        showAlert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    }
+
+    // Handle Member Registration
+    async function handleRegister(e) {
+      e.preventDefault();
+      hideAlert();
+
+      const btn = document.getElementById('regBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creating Account...';
+
+      const full_name = document.getElementById('regName').value.trim();
+      const phone_number = document.getElementById('regPhone').value.trim();
+      const email = document.getElementById('regEmail') ? document.getElementById('regEmail').value.trim() : '';
+      const password = document.getElementById('regPassword').value;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            full_name: full_name, 
+            full_names: full_name, 
+            phone_number: phone_number, 
+            email: email, 
+            password: password 
+          })
+        });
+        
+        const data = await res.json();
+
+        if (!res.ok) {
+          const errorMsg = data.message || (data.errors && data.errors[0]?.msg) || 'Registration failed';
+          throw new Error(errorMsg);
+        }
+
+        showAlert('Account created successfully! Please sign in.', false);
+        setTimeout(() => {
+          switchTab('login');
+          document.getElementById('loginPhone').value = phone_number;
+        }, 1500);
+
+      } catch (err) {
+        showAlert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Complete Registration';
+      }
+    }
+
+    // Toggle Dashboard UI
+    function showDashboard(user) {
+      document.getElementById('login-section').classList.add('hidden');
+      document.getElementById('dashboard-section').classList.remove('hidden');
+      document.getElementById('nav-user').classList.remove('hidden');
+      document.getElementById('user-display').textContent = user.full_name;
+
+      loadPrograms();
+    }
+
+    // Logout Member
+    function logout() {
+      localStorage.removeItem('kishan_token');
+      localStorage.removeItem('kishan_user');
+      location.reload();
+    }
+
+    // Modal Controls
+    async function openInvestModal() {
+      document.getElementById('investModal').classList.remove('hidden');
+      showInvestAlert('', 'hidden');
+      await loadProgramsModal();
+    }
+
+    function closeInvestModal() {
+      document.getElementById('investModal').classList.add('hidden');
+    }
+
+    async function loadProgramsModal() {
+      const token = localStorage.getItem('kishan_token');
+      const select = document.getElementById('programSelect');
+
+      try {
+        const res = await fetch(`${API_BASE}/investments/programs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        activeProgramsList = await res.json();
+
+        if (!activeProgramsList.length) {
+          select.innerHTML = `<option value="">No active programs available</option>`;
+          return;
+        }
+
+        select.innerHTML = activeProgramsList.map(p => 
+          `<option value="${p.id}">${p.title} (UGX ${parseFloat(p.share_price).toLocaleString()} / share - +${p.roi_percentage}% ROI)</option>`
+        ).join('');
+
+        calculateProjections();
+      } catch (err) {
+        console.error(err);
+        select.innerHTML = `<option value="">Failed to load programs</option>`;
+      }
+    }
+
+    function calculateProjections() {
+      const progId = document.getElementById('programSelect').value;
+      const qty = parseInt(document.getElementById('shareQuantity').value) || 0;
+      const prog = activeProgramsList.find(p => p.id == progId);
+
+      if (!prog || qty <= 0) {
+        document.getElementById('projPrice').textContent = 'UGX 0';
+        document.getElementById('projTotalCost').textContent = 'UGX 0';
+        document.getElementById('projRoi').textContent = '+0%';
+        document.getElementById('projDuration').textContent = '0 Days';
+        document.getElementById('projPayout').textContent = 'UGX 0';
+        return;
+      }
+
+      const unitPrice = parseFloat(prog.share_price);
+      const totalCost = unitPrice * qty;
+      const roi = parseFloat(prog.roi_percentage);
+      const payout = totalCost * (1 + (roi / 100));
+
+      document.getElementById('projPrice').textContent = `UGX ${unitPrice.toLocaleString()}`;
+      document.getElementById('projTotalCost').textContent = `UGX ${totalCost.toLocaleString()}`;
+      document.getElementById('projRoi').textContent = `+${roi}%`;
+      document.getElementById('projDuration').textContent = `${prog.duration_days} Days`;
+      document.getElementById('projPayout').textContent = `UGX ${payout.toLocaleString()}`;
+    }
+
+    function showInvestAlert(msg, typeClass) {
+      const alertBox = document.getElementById('investAlert');
+      alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + typeClass;
+      alertBox.textContent = msg;
+    }
+
+    async function handleInvestSubmit(event) {
+      event.preventDefault();
+      const token = localStorage.getItem('kishan_token');
+      const programId = document.getElementById('programSelect').value;
+      const sharesCount = document.getElementById('shareQuantity').value;
+
+      const btn = document.getElementById('buySharesBtn');
+      btn.disabled = true;
+      btn.innerText = 'Processing...';
+
+      try {
+        const response = await fetch(`${API_BASE}/investments/purchase`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ program_id: programId, shares_count: sharesCount })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Purchase failed');
+        }
+
+        showInvestAlert(data.message, 'bg-emerald-50 text-emerald-800 border border-emerald-200');
+
+        setTimeout(() => {
+          closeInvestModal();
+          loadPrograms();
+        }, 2000);
+
+      } catch (err) {
+        showInvestAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Confirm & Pay From Wallet';
+      }
+    }
+
+    // Dashboard Program Cards Loader
+    async function loadPrograms() {
+      const grid = document.getElementById('programs-grid');
+      grid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">Loading available programs...</p>';
+
+      try {
+        const res = await fetch(`${API_BASE}/investments/programs`);
+        const programs = await res.json();
+
+        if (!programs.length) {
+          grid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">No active investment programs available at the moment.</p>';
+          return;
+        }
+
+        grid.innerHTML = programs.map(p => {
+          const imageSrc = p.image_url 
+            ? (p.image_url.startsWith('http') ? p.image_url : `${RENDER_HOST}${p.image_url.startsWith('/') ? '' : '/'}${p.image_url}`)
+            : 'https://via.placeholder.com/400x200?text=Kishan+Incomes';
+
+          return `
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden flex flex-col">
+              <img src="${imageSrc}" alt="${p.title}" class="w-full h-44 object-cover">
+              <div class="p-4 flex-1 flex flex-col justify-between">
+                <div>
+                  <h3 class="text-lg font-bold text-gray-800 mb-1">${p.title}</h3>
+                  <p class="text-xs text-gray-600 mb-4 line-clamp-2">${p.description || 'No detailed description provided.'}</p>
+                  
+                  <div class="bg-emerald-50 border border-emerald-100 p-3 rounded mb-4 text-xs space-y-1 text-emerald-950">
+                    <div class="flex justify-between"><span>Share Price:</span> <strong class="font-bold">UGX ${Number(p.share_price).toLocaleString()}</strong></div>
+                    <div class="flex justify-between"><span>Interest Rate (ROI):</span> <strong class="font-bold text-emerald-700">+${p.roi_percentage}%</strong></div>
+                    <div class="flex justify-between"><span>Lock Duration:</span> <strong class="font-bold">${p.duration_days} Days</strong></div>
+                  </div>
+                </div>
+
+                <div class="pt-2 border-t border-gray-100">
+                  <button onclick="openInvestModal()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold py-2.5 rounded transition uppercase tracking-wider">
+                    Quick Purchase Shares
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        grid.innerHTML = '<p class="col-span-full text-center text-red-500 py-8">Failed to load investment programs.</p>';
+      }
+    }
+  </script>
+</body>
+</html>
