@@ -38,12 +38,12 @@ router.patch('/users/:id/role', async (req, res) => {
   }
 });
 
-// 3. Create a new investment program
+// 3. Create a new investment program (With robust type handling)
 router.post('/programs', async (req, res) => {
   const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
 
-  if (!title || !share_price || !roi_percentage || !duration_days) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  if (!title || share_price === undefined || roi_percentage === undefined || !duration_days) {
+    return res.status(400).json({ success: false, message: 'Missing required program fields' });
   }
 
   try {
@@ -51,13 +51,20 @@ router.post('/programs', async (req, res) => {
       `INSERT INTO investment_programs 
        (title, share_price, roi_percentage, duration_days, image_url, description) 
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, share_price, roi_percentage, duration_days, image_url || null, description || null]
+      [
+        title, 
+        parseFloat(share_price), 
+        parseFloat(roi_percentage), 
+        parseInt(duration_days), 
+        image_url || null, 
+        description || null
+      ]
     );
 
-    res.status(201).json({ success: true, message: 'Program created', programId: result.insertId });
+    res.status(201).json({ success: true, message: 'Program created successfully', programId: result.insertId });
   } catch (error) {
     console.error('Admin Program Creation Error:', error);
-    res.status(500).json({ success: false, message: 'Failed to create program' });
+    res.status(500).json({ success: false, message: error.message || 'Failed to create program' });
   }
 });
 
@@ -75,7 +82,7 @@ router.delete('/programs/:id', async (req, res) => {
 // Existing Admin Controller Routes
 router.get('/investments/active', adminController.getAllActiveInvestments);
 router.post('/investments/:id/payout', adminController.forceMaturityPayout);
-router.post('/adjust-balance', adminController.adjustUserBalance);
+router.post('/users/adjust-balance', adminController.adjustUserBalance);
 router.post('/announcements', adminController.postAnnouncement);
 
 module.exports = router;
