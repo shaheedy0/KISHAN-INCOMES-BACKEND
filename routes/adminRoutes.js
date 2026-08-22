@@ -4,29 +4,35 @@ const db = require('../config/db');
 const adminController = require('../controllers/adminController');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
-// Protect all admin routes with JWT and Admin checks
 router.use(verifyToken, verifyAdmin);
 
-// 1. Fetch all registered users
+// Fetch registered members with column fallback
 router.get('/users', async (req, res) => {
   try {
     const [users] = await db.execute(
-      'SELECT id, full_name, phone_number, role, email, created_at FROM users ORDER BY id DESC'
+      `SELECT id, 
+              COALESCE(full_name, full_names, 'Member') AS full_name, 
+              phone_number, 
+              role, 
+              email, 
+              created_at 
+       FROM users 
+       ORDER BY id DESC`
     );
-    res.json({ success: true, users });
+    res.json(users);
   } catch (error) {
     console.error('Admin DB Error:', error);
-    res.status(500).json({ success: false, message: 'Database error fetching users' });
+    res.status(500).json({ message: 'Database error fetching users' });
   }
 });
 
-// 2. Toggle user roles (Admin <-> Member)
+// Update member role
 router.patch('/users/:id/role', async (req, res) => {
   const { role } = req.body;
   const userId = req.params.id;
 
   if (!['admin', 'member'].includes(role)) {
-    return res.status(400).json({ success: false, message: 'Invalid role specified' });
+    return res.status(400).json({ message: 'Invalid role specified' });
   }
 
   try {
@@ -34,26 +40,29 @@ router.patch('/users/:id/role', async (req, res) => {
     res.json({ success: true, message: 'User role updated successfully' });
   } catch (error) {
     console.error('Admin Role Update Error:', error);
-    res.status(500).json({ success: false, message: 'Failed to update user role' });
+    res.status(500).json({ message: 'Failed to update user role' });
   }
 });
 
-// 3. Create a new investment program (With robust type handling)
+// Create investment program (populates status and is_active)
 router.post('/programs', async (req, res) => {
-  const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
+  const { title, share_price, amount_per_share, roi_percentage, duration_days, image_url, description } = req.body;
 
-  if (!title || share_price === undefined || roi_percentage === undefined || !duration_days) {
-    return res.status(400).json({ success: false, message: 'Missing required program fields' });
+  const price = share_price !== undefined ? share_price : amount_per_share;
+
+  if (!title || price === undefined || roi_percentage === undefined || !duration_days) {
+    return res.status(400).json({ message: 'Missing required program fields' });
   }
 
   try {
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, share_price, roi_percentage, duration_days, image_url, description) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (title, share_price, amount_per_share, roi_percentage, duration_days, image_url, description, status, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1)`,
       [
         title, 
-        parseFloat(share_price), 
+        parseFloat(price),
+        parseFloat(price),
         parseFloat(roi_percentage), 
         parseInt(duration_days), 
         image_url || null, 
@@ -64,22 +73,21 @@ router.post('/programs', async (req, res) => {
     res.status(201).json({ success: true, message: 'Program created successfully', programId: result.insertId });
   } catch (error) {
     console.error('Admin Program Creation Error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to create program' });
+    res.status(500).json({ message: error.message || 'Failed to create program' });
   }
 });
 
-// 4. Delete an investment program
+// Delete investment program
 router.delete('/programs/:id', async (req, res) => {
   try {
     await db.execute('DELETE FROM investment_programs WHERE id = ?', [req.params.id]);
     res.json({ success: true, message: 'Program deleted successfully' });
   } catch (error) {
     console.error('Admin Program Deletion Error:', error);
-    res.status(500).json({ success: false, message: 'Failed to delete program' });
+    res.status(500).json({ message: 'Failed to delete program' });
   }
 });
 
-// Existing Admin Controller Routes
 router.get('/investments/active', adminController.getAllActiveInvestments);
 router.post('/investments/:id/payout', adminController.forceMaturityPayout);
 router.post('/users/adjust-balance', adminController.adjustUserBalance);

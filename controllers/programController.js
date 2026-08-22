@@ -2,12 +2,12 @@ const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
 
-// Create New Investment Program (Admin Only)
 exports.createProgram = async (req, res) => {
-  const { title, description, amount_per_share, roi_percentage, duration_days } = req.body;
+  const { title, description, amount_per_share, share_price, roi_percentage, duration_days } = req.body;
+  const price = share_price !== undefined ? share_price : amount_per_share;
 
-  if (!title || !amount_per_share || !roi_percentage || !duration_days) {
-    return res.status(400).json({ message: 'Title, amount per share, ROI, and duration are required.' });
+  if (!title || price === undefined || !roi_percentage || !duration_days) {
+    return res.status(400).json({ message: 'Title, price per share, ROI, and duration are required.' });
   }
 
   const imageUrl = req.file ? `/uploads/programs/${req.file.filename}` : null;
@@ -15,9 +15,9 @@ exports.createProgram = async (req, res) => {
   try {
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, description, image_url, amount_per_share, roi_percentage, duration_days, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
-      [title, description || '', imageUrl, amount_per_share, roi_percentage, duration_days]
+       (title, description, image_url, share_price, amount_per_share, roi_percentage, duration_days, status, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', TRUE)`,
+      [title, description || '', imageUrl, parseFloat(price), parseFloat(price), parseFloat(roi_percentage), parseInt(duration_days)]
     );
 
     res.status(201).json({
@@ -32,13 +32,12 @@ exports.createProgram = async (req, res) => {
   }
 };
 
-// Update Existing Program (Admin Only)
 exports.updateProgram = async (req, res) => {
   const { id } = req.params;
-  const { title, description, amount_per_share, roi_percentage, duration_days, is_active } = req.body;
+  const { title, description, amount_per_share, share_price, roi_percentage, duration_days, is_active } = req.body;
+  const price = share_price !== undefined ? share_price : amount_per_share;
 
   try {
-    // Fetch current record
     const [existing] = await db.execute('SELECT * FROM investment_programs WHERE id = ?', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ message: 'Investment program not found.' });
@@ -47,10 +46,8 @@ exports.updateProgram = async (req, res) => {
     const currentProgram = existing[0];
     let imageUrl = currentProgram.image_url;
 
-    // If a new file was uploaded, update image path and remove the old file
     if (req.file) {
       imageUrl = `/uploads/programs/${req.file.filename}`;
-
       if (currentProgram.image_url) {
         const oldFilePath = path.join(__dirname, '..', currentProgram.image_url);
         if (fs.existsSync(oldFilePath)) {
@@ -61,14 +58,15 @@ exports.updateProgram = async (req, res) => {
 
     await db.execute(
       `UPDATE investment_programs 
-       SET title = ?, description = ?, image_url = ?, amount_per_share = ?, 
+       SET title = ?, description = ?, image_url = ?, share_price = ?, amount_per_share = ?, 
            roi_percentage = ?, duration_days = ?, is_active = ? 
        WHERE id = ?`,
       [
         title || currentProgram.title,
         description !== undefined ? description : currentProgram.description,
         imageUrl,
-        amount_per_share || currentProgram.amount_per_share,
+        price || currentProgram.share_price || currentProgram.amount_per_share,
+        price || currentProgram.amount_per_share || currentProgram.share_price,
         roi_percentage || currentProgram.roi_percentage,
         duration_days || currentProgram.duration_days,
         is_active !== undefined ? is_active : currentProgram.is_active,
@@ -84,11 +82,15 @@ exports.updateProgram = async (req, res) => {
   }
 };
 
-// Get All Active Investment Programs (Public/User Endpoint)
 exports.getAllPrograms = async (req, res) => {
   try {
     const [programs] = await db.execute(
-      'SELECT * FROM investment_programs WHERE is_active = TRUE ORDER BY created_at DESC'
+      `SELECT id, title, description, 
+              COALESCE(share_price, amount_per_share) AS share_price, 
+              roi_percentage, duration_days, image_url 
+       FROM investment_programs 
+       WHERE is_active = TRUE OR status = 'active' 
+       ORDER BY id DESC`
     );
     res.json(programs);
   } catch (error) {
@@ -97,7 +99,6 @@ exports.getAllPrograms = async (req, res) => {
   }
 };
 
-// Get Single Program by ID
 exports.getProgramById = async (req, res) => {
   try {
     const [programs] = await db.execute(
