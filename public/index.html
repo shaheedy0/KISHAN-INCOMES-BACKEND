@@ -257,13 +257,17 @@
     const API_BASE = `${RENDER_HOST}/api`;
     let activeProgramsList = [];
 
-    // Auto-check authentication state on load
+    // Auto-check authentication state & role on load
     window.addEventListener('DOMContentLoaded', () => {
       const token = localStorage.getItem('kishan_token');
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
 
       if (token && user.full_name) {
-        showDashboard(user);
+        if (user.role === 'admin') {
+          window.location.href = 'admin.html';
+        } else {
+          showDashboard(user);
+        }
       }
     });
 
@@ -300,7 +304,7 @@
       document.getElementById('authAlert').classList.add('hidden');
     }
 
-    // Handle Member Login
+    // Handle Member Login with Role-Based Redirection
     async function handleLogin(e) {
       e.preventDefault();
       hideAlert();
@@ -327,7 +331,11 @@
 
         showAlert('Login successful!', false);
         setTimeout(() => {
-          showDashboard(data.user);
+          if (data.user && data.user.role === 'admin') {
+            window.location.href = 'admin.html';
+          } else {
+            showDashboard(data.user);
+          }
         }, 800);
 
       } catch (err) {
