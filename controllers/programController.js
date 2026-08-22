@@ -10,14 +10,14 @@ exports.createProgram = async (req, res) => {
     return res.status(400).json({ message: 'Title, price per share, ROI, and duration are required.' });
   }
 
-  const imageUrl = req.file ? `/uploads/programs/${req.file.filename}` : null;
+  const imageUrl = req.file ? `/uploads/programs/${req.file.filename}` : (req.body.image_url || null);
 
   try {
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, description, image_url, share_price, amount_per_share, roi_percentage, duration_days, status, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', TRUE)`,
-      [title, description || '', imageUrl, parseFloat(price), parseFloat(price), parseFloat(roi_percentage), parseInt(duration_days)]
+       (title, description, image_url, share_price, roi_percentage, duration_days, status, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, 'active', TRUE)`,
+      [title, description || '', imageUrl, parseFloat(price), parseFloat(roi_percentage), parseInt(duration_days)]
     );
 
     res.status(201).json({
@@ -28,13 +28,13 @@ exports.createProgram = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating program:', error);
-    res.status(500).json({ message: 'Failed to create investment program.' });
+    res.status(500).json({ message: 'Failed to create investment program.', error: error.message });
   }
 };
 
 exports.updateProgram = async (req, res) => {
   const { id } = req.params;
-  const { title, description, amount_per_share, share_price, roi_percentage, duration_days, is_active } = req.body;
+  const { title, description, amount_per_share, share_price, roi_percentage, duration_days, is_active, image_url } = req.body;
   const price = share_price !== undefined ? share_price : amount_per_share;
 
   try {
@@ -48,25 +48,26 @@ exports.updateProgram = async (req, res) => {
 
     if (req.file) {
       imageUrl = `/uploads/programs/${req.file.filename}`;
-      if (currentProgram.image_url) {
+      if (currentProgram.image_url && currentProgram.image_url.startsWith('/uploads/')) {
         const oldFilePath = path.join(__dirname, '..', currentProgram.image_url);
         if (fs.existsSync(oldFilePath)) {
           fs.unlinkSync(oldFilePath);
         }
       }
+    } else if (image_url !== undefined) {
+      imageUrl = image_url;
     }
 
     await db.execute(
       `UPDATE investment_programs 
-       SET title = ?, description = ?, image_url = ?, share_price = ?, amount_per_share = ?, 
+       SET title = ?, description = ?, image_url = ?, share_price = ?, 
            roi_percentage = ?, duration_days = ?, is_active = ? 
        WHERE id = ?`,
       [
         title || currentProgram.title,
         description !== undefined ? description : currentProgram.description,
         imageUrl,
-        price || currentProgram.share_price || currentProgram.amount_per_share,
-        price || currentProgram.amount_per_share || currentProgram.share_price,
+        price !== undefined ? price : currentProgram.share_price,
         roi_percentage || currentProgram.roi_percentage,
         duration_days || currentProgram.duration_days,
         is_active !== undefined ? is_active : currentProgram.is_active,
@@ -78,15 +79,14 @@ exports.updateProgram = async (req, res) => {
 
   } catch (error) {
     console.error('Error updating program:', error);
-    res.status(500).json({ message: 'Failed to update investment program.' });
+    res.status(500).json({ message: 'Failed to update investment program.', error: error.message });
   }
 };
 
 exports.getAllPrograms = async (req, res) => {
   try {
     const [programs] = await db.execute(
-      `SELECT id, title, description, 
-              COALESCE(share_price, amount_per_share) AS share_price, 
+      `SELECT id, title, description, share_price, 
               roi_percentage, duration_days, image_url 
        FROM investment_programs 
        WHERE is_active = TRUE OR status = 'active' 
