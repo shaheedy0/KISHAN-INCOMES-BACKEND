@@ -1,0 +1,190 @@
+const db = require('../config/db');
+const crypto = require('crypto');
+
+/**
+ * Format Ugandan phone numbers to 2567XXXXXXXX
+ */
+function formatUGPhoneNumber(phone) {
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('0')) {
+    cleaned = '256' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7')) {
+    cleaned = '256' + cleaned;
+  }
+  
+  if (!/^2567\d{8}$/.test(cleaned)) {
+    throw new Error('Invalid Ugandan phone number. Must be MTN or Airtel (e.g., 077... or 070...).');
+  }
+  return cleaned;
+}
+
+/**
+ * Request Mobile Money B2C Withdrawal
+ * Route: POST /api/withdrawal/request
+ */
+exports.requestWithdrawal = async (req, res) => {
+  let connection;
+
+  try {
+    const userId = req.user.id; // From JWT middleware
+    const { phone_number, amount, network } = req.body;
+
+    // 1. Basic Validations
+    if (!phone_number || !amount || !network) {
+      return res.status(400).json({ message: 'Phone number, amount, and network are required.' });
+    }
+
+    const withdrawAmount = parseFloat(amount);
+    const MIN_WITHDRAWAL = 1000; // Minimum UGX 1,000
+
+    if (isNaN(withdrawAmount) || withdrawAmount < MIN_WITHDRAWAL) {
+      return res.status(400).json({ 
+        message: `Minimum withdrawal amount is UGX ${MIN_WITHDRAWAL.toLocaleString()}.` 
+      });
+    }
+
+    if (!['MTN', 'AIRTEL'].includes(network.toUpperCase())) {
+      return res.status(400).json({ message: 'Network must be either MTN or AIRTEL.' });
+    }
+
+    const formattedPhone = formatUGPhoneNumber(phone_number);
+    const txReference = `WD-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+
+    // 2. Start Atomic Database Transaction
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // Lock user row for update to ensure concurrency safety
+    const [userRows] = await connection.execute(
+      `SELECT balance FROM users WHERE id = ? FOR UPDATE`,
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'User account not found.' });
+    }
+
+    const currentBalance = parseFloat(userRows[0].balance);
+
+    // Verify user has sufficient liquid balance
+    if (currentBalance < withdrawAmount) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        message: `Insufficient wallet balance. Available balance: UGX ${currentBalance.toLocaleString()}` 
+      });
+    }
+
+    // Deduct amount immediately from liquid balance
+    await connection.execute(
+      `UPDATE users SET balance = balance - ? WHERE id = ?`,
+      [withdrawAmount, userId]
+    );
+
+    // Record pending withdrawal transaction
+    const [txResult] = await connection.execute(
+      `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
+       VALUES (?, ?, ?, ?, ?, 'withdrawal', 'pending')`,
+      [userId, txReference, formattedPhone, network.toUpperCase(), withdrawAmount]
+    );
+
+    const transactionId = txResult.insertId;
+
+    // Commit balance deduction before initiating asynchronous B2C payout
+    await connection.commit();
+
+    // Calculate new remaining balance
+    const newBalance = currentBalance - withdrawAmount;
+
+    // 3. Initiate Telecom B2C Payout API Call
+    try {
+      const payoutResponse = await executeB2CPayoutAPI({
+        reference: txReference,
+        phone: formattedPhone,
+        amount: withdrawAmount,
+        network: network.toUpperCase()
+      });
+
+      // Update external reference from aggregator
+      await db.execute(
+        `UPDATE transactions SET external_ref = ?, status = ? WHERE id = ?`,
+        [payoutResponse.externalRef, payoutResponse.status, transactionId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Withdrawal request of UGX ${withdrawAmount.toLocaleString()} submitted. Funds will be sent to ${formattedPhone}.`,
+        reference: txReference,
+        newBalance: newBalance
+      });
+
+    } catch (payoutError) {
+      console.error('[B2C API Error]:', payoutError.message);
+
+      // Refund the user balance if payout initiation failed at API level
+      await db.execute(
+        `UPDATE users SET balance = balance + ? WHERE id = ?`,
+        [withdrawAmount, userId]
+      );
+
+      await db.execute(
+        `UPDATE transactions SET status = 'failed' WHERE id = ?`,
+        [transactionId]
+      );
+
+      return res.status(502).json({
+        success: false,
+        message: 'Mobile Money network payout failed. Your wallet balance has been refunded.'
+      });
+    }
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Withdrawal Processing Error:', error.message);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Internal server error processing withdrawal.' 
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+/**
+ * Get User Withdrawal History
+ * Route: GET /api/withdrawal/history
+ */
+exports.getWithdrawalHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [rows] = await db.execute(
+      `SELECT id, reference, phone_number, network, amount, status, external_ref, created_at 
+       FROM transactions 
+       WHERE user_id = ? AND transaction_type = 'withdrawal' 
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    return res.status(200).json(rows);
+  } catch (error) {
+    console.error('Fetch Withdrawal History Error:', error);
+    return res.status(500).json({ message: 'Server error retrieving withdrawal history.' });
+  }
+};
+
+/**
+ * Telecom B2C Payout API Caller (Yo! Payments, Beyonic, Flutterwave, or Direct MoMo B2C)
+ */
+async function executeB2CPayoutAPI({ reference, phone, amount, network }) {
+  // Replace this placeholder with your live aggregator payout call:
+  // e.g., Yo! Payments (ac_deposit_funds), Beyonic B2C, or MTN MoMo Disbursement API
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        status: 'completed', // or 'pending' if provider processes asynchronously
+        externalRef: `B2C-TELCO-${Date.now()}`
+      });
+    }, 1000);
+  });
+}
