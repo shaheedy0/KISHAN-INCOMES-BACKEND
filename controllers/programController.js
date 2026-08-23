@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 exports.createProgram = async (req, res) => {
-  const { title, description, share_price, share_price, roi_percentage, duration_days } = req.body;
+  const { title, description, share_price, roi_percentage, duration_days } = req.body;
   const price = share_price !== undefined ? share_price : share_price;
 
   if (!title || price === undefined || !roi_percentage || !duration_days) {
@@ -34,7 +34,7 @@ exports.createProgram = async (req, res) => {
 
 exports.updateProgram = async (req, res) => {
   const { id } = req.params;
-  const { title, description, share_price, share_price, roi_percentage, duration_days, is_active, image_url } = req.body;
+  const { title, description, share_price, roi_percentage, duration_days, is_active, image_url } = req.body;
   const price = share_price !== undefined ? share_price : share_price;
 
   try {
