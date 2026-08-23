@@ -142,7 +142,6 @@
     const token = localStorage.getItem('token') || localStorage.getItem('kishan_token');
     let cachedUsers = [];
 
-    // Guard protection
     if (!token) {
       window.location.replace('/index.html');
     }
@@ -156,7 +155,6 @@
       loadAdminPrograms();
     });
 
-    // 1. Fetch Users
     async function loadUsers() {
       try {
         const response = await fetch(`${API_BASE}/admin/users`, {
@@ -227,16 +225,17 @@
       renderUsersTable(filtered);
     }
 
-    // 2. Investment Programs Management
     async function loadAdminPrograms() {
       try {
         const res = await fetch(`${API_BASE}/investments/programs`);
-        const programs = await res.json();
+        const data = await res.json();
         const tbody = document.getElementById('programsTableBody');
 
-        if (Array.isArray(programs) && programs.length > 0) {
-          document.getElementById('statTotalPrograms').textContent = programs.length;
-          tbody.innerHTML = programs.map(p => `
+        const programsList = Array.isArray(data) ? data : (data.programs || data.data || []);
+
+        if (programsList.length > 0) {
+          document.getElementById('statTotalPrograms').textContent = programsList.length;
+          tbody.innerHTML = programsList.map(p => `
             <tr class="hover:bg-gray-50">
               <td class="p-3">${p.id}</td>
               <td class="p-3 font-semibold">${p.title}</td>
@@ -269,7 +268,6 @@
       btn.disabled = true;
       btn.textContent = 'Saving...';
 
-      // Extract raw values from inputs
       const title = document.getElementById('progTitle').value.trim();
       const share_price = document.getElementById('progPrice').value;
       const roi_percentage = document.getElementById('progRoi').value;
@@ -278,7 +276,6 @@
       const description = document.getElementById('progDesc').value.trim() || null;
 
       try {
-        // Changed fetch URL to /investments/programs and updated body payload
         const res = await fetch(`${API_BASE}/investments/programs`, {
           method: 'POST',
           headers: {
@@ -341,7 +338,7 @@
       if (!confirm(`Are you sure you want to delete program ID ${programId}?`)) return;
 
       try {
-        const res = await fetch(`${API_BASE}/admin/programs/${programId}`, {
+        const res = await fetch(`${API_BASE}/investments/programs/${programId}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
