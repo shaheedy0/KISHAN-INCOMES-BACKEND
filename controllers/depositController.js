@@ -102,12 +102,10 @@ exports.checkDepositStatus = async (req, res) => {
  */
 exports.handleSMSWebhook = async (req, res) => {
   // 1. IMMEDIATELY acknowledge the webhook with a 200 OK.
-  // This tells the Android app "Success!" and stops it from retrying or showing red error badges.
   res.status(200).json({ success: true, message: 'Webhook received and processing in background' });
 
   let connection;
   try {
-    // Check multiple potential payload keys depending on how the app structures its JSON
     const { message, text, content, body } = req.body;
     const smsBody = message || text || content || body || '';
 
@@ -175,9 +173,9 @@ exports.handleSMSWebhook = async (req, res) => {
       [tx.id]
     );
 
-    // 7. Automatically credit user's wallet balance
+    // 7. Automatically credit user's WALLET balance (Fixed from users table)
     await connection.execute(
-      `UPDATE users SET balance = balance + ? WHERE id = ?`,
+      `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [tx.amount, tx.user_id]
     );
 

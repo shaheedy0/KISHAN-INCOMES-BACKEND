@@ -71,13 +71,17 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
+    // Fetch user's wallet balance from the wallets table
+    const [wallets] = await db.execute('SELECT balance FROM wallets WHERE user_id = ?', [user.id]);
+    const balance = wallets.length > 0 ? wallets[0].balance : 0.00;
+
     const token = jwt.sign(
       { id: user.id, role: user.role, phone: user.phone_number },
       process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: '7d' }
     );
 
-    // FIXED: Now sending the 'role' back to the frontend!
+    // Return role and balance back to the frontend
     return res.json({ 
       success: true, 
       token, 
@@ -85,7 +89,8 @@ exports.login = async (req, res) => {
         id: user.id, 
         full_name: user.full_name, 
         phone_number: user.phone_number,
-        role: user.role 
+        role: user.role,
+        balance: balance 
       } 
     });
   } catch (error) {
