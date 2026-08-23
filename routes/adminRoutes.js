@@ -6,19 +6,11 @@ const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
 router.use(verifyToken, verifyAdmin);
 
-// Fetch registered members safely with dynamic column name checks
+// Fetch registered members with a simple, safe query
 router.get('/users', async (req, res) => {
   try {
-    const [users] = await db.execute(
-      `SELECT id, 
-              COALESCE(full_name, full_names, 'Member') AS full_name, 
-              COALESCE(phone_number, phone, 'N/A') AS phone_number, 
-              COALESCE(role, 'member') AS role, 
-              COALESCE(email, 'N/A') AS email, 
-              created_at 
-       FROM users 
-       ORDER BY id DESC`
-    );
+    // Select just the ID and all columns safely; if columns don't exist, this prevents crashes
+    const [users] = await db.execute('SELECT * FROM users ORDER BY id DESC');
     res.json(users);
   } catch (error) {
     console.error('Admin DB Error:', error);
