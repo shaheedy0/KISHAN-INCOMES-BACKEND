@@ -1,5 +1,5 @@
-const db = require('../config/db'); // MySQL pool connection (mysql2/promise)[cite: 10]
-const crypto = require('crypto');[cite: 10]
+const db = require('../config/db'); // MySQL pool connection (mysql2/promise)
+const crypto = require('crypto');
 
 /**
  * Helper: Format Ugandan phone numbers to standard international format (2567XXXXXXXX)
@@ -19,11 +19,11 @@ function formatUGPhoneNumber(phone) {
 }
 
 /**
- * Controller: Initiate Deposit Request (Creates Pending Transaction)
+ * Controller: Initiate Deposit Request (Logs as pending and displays Airtel Merchant instructions)
  */
 exports.initiateSTKPush = async (req, res) => {
   try {
-    const userId = req.user.id; // Extracted from JWT auth middleware[cite: 10]
+    const userId = req.user.id; // Extracted from JWT auth middleware
     const { phone_number, amount, network } = req.body;
 
     if (!phone_number || !amount || !network) {
@@ -44,24 +44,25 @@ exports.initiateSTKPush = async (req, res) => {
     }
 
     const formattedPhone = formatUGPhoneNumber(phone_number);
-    const txReference = `DEP-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;[cite: 10]
+    const txReference = `DEP-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
-    // Create pending transaction record in MySQL[cite: 10]
+    // 1. Create pending transaction record in MySQL
     const [result] = await db.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
        VALUES (?, ?, ?, ?, ?, 'deposit', 'pending')`,
       [userId, txReference, formattedPhone, net, parsedAmount]
     );
 
+    // 2. Return success response instructing user to pay via Airtel Merchant code
     return res.status(200).json({
       success: true,
-      message: `Deposit request logged. Please send UGX ${parsedAmount.toLocaleString()} via Mobile Money to our official collection line. Your wallet will be credited automatically upon confirmation.`,
+      message: `Deposit request logged as pending. Please pay UGX ${parsedAmount.toLocaleString()} to Airtel Merchant Code: 7183127 (Kishan Incomes Ltd). Your wallet will be credited automatically once the system confirms payment.`,
       reference: txReference,
       transactionId: result.insertId
     });
 
   } catch (error) {
-    console.error('Deposit Initiation Error:', error.message);[cite: 10]
+    console.error('Deposit Initiation Error:', error.message);
     return res.status(500).json({ 
       success: false, 
       message: error.message || 'Failed to initiate deposit.' 
@@ -70,12 +71,12 @@ exports.initiateSTKPush = async (req, res) => {
 };
 
 /**
- * Controller: Check Status of Pending Deposit (Polling Endpoint)[cite: 10]
+ * Controller: Check Status of Pending Deposit (Polling Endpoint)
  */
 exports.checkDepositStatus = async (req, res) => {
   try {
-    const { reference } = req.params;[cite: 10]
-    const userId = req.user.id;[cite: 10]
+    const { reference } = req.params;
+    const userId = req.user.id;
 
     const [rows] = await db.execute(
       `SELECT id, reference, amount, status, created_at FROM transactions WHERE reference = ? AND user_id = ?`,
@@ -91,7 +92,7 @@ exports.checkDepositStatus = async (req, res) => {
       transaction: rows[0]
     });
   } catch (error) {
-    console.error('Check Status Error:', error);[cite: 10]
+    console.error('Check Status Error:', error);
     return res.status(500).json({ message: 'Server error checking status.' });
   }
 };
@@ -128,7 +129,7 @@ exports.handleSMSWebhook = async (req, res) => {
       phone = '256' + phone.substring(1);
     }
 
-    connection = await db.getConnection();[cite: 10]
+    connection = await db.getConnection();
     await connection.beginTransaction();
 
     // 3. Find matching pending deposit transaction
