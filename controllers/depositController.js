@@ -1,5 +1,5 @@
-const db = require('../config/db'); // MySQL pool connection (mysql2/promise)
-const crypto = require('crypto');
+const db = require('../config/db'); // MySQL pool connection (mysql2/promise)[cite: 10]
+const crypto = require('crypto');[cite: 10]
 
 /**
  * Helper: Format Ugandan phone numbers to standard international format (2567XXXXXXXX)
@@ -19,14 +19,13 @@ function formatUGPhoneNumber(phone) {
 }
 
 /**
- * Controller: Initiate STK Push Deposit
+ * Controller: Initiate Deposit Request (Creates Pending Transaction)
  */
 exports.initiateSTKPush = async (req, res) => {
   try {
-    const userId = req.user.id; // Extracted from JWT auth middleware
+    const userId = req.user.id; // Extracted from JWT auth middleware[cite: 10]
     const { phone_number, amount, network } = req.body;
 
-    // 1. Basic Validations
     if (!phone_number || !amount || !network) {
       return res.status(400).json({ message: 'Phone number, amount, and network provider are required.' });
     }
@@ -36,63 +35,47 @@ exports.initiateSTKPush = async (req, res) => {
       return res.status(400).json({ message: 'Minimum deposit amount is UGX 500.' });
     }
 
-    if (!['MTN', 'AIRTEL'].includes(network.toUpperCase())) {
+    let net = network.trim().toUpperCase();
+    if (net.includes('MTN')) net = 'MTN';
+    if (net.includes('AIRTEL')) net = 'AIRTEL';
+
+    if (!['MTN', 'AIRTEL'].includes(net)) {
       return res.status(400).json({ message: 'Network must be either MTN or AIRTEL.' });
     }
 
-    // Format phone number to 2567XXXXXXXX
     const formattedPhone = formatUGPhoneNumber(phone_number);
-    const txReference = `DEP-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const txReference = `DEP-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;[cite: 10]
 
-    // 2. Create pending transaction record in MySQL
+    // Create pending transaction record in MySQL[cite: 10]
     const [result] = await db.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
        VALUES (?, ?, ?, ?, ?, 'deposit', 'pending')`,
-      [userId, txReference, formattedPhone, network.toUpperCase(), parsedAmount]
+      [userId, txReference, formattedPhone, net, parsedAmount]
     );
-
-    const transactionId = result.insertId;
-
-    // 3. Trigger Telecom Provider / Aggregator API (e.g., Yo! Payments, Beyonic, or Direct MTN/Airtel API)
-    // Replace this block with your actual aggregator SDK / axios call
-    const stkResponse = await triggerTelecomAPI({
-      reference: txReference,
-      phone: formattedPhone,
-      amount: parsedAmount,
-      network: network.toUpperCase()
-    });
-
-    // Save telecom external transaction reference if available
-    if (stkResponse.externalRef) {
-      await db.execute(
-        `UPDATE transactions SET external_ref = ? WHERE id = ?`,
-        [stkResponse.externalRef, transactionId]
-      );
-    }
 
     return res.status(200).json({
       success: true,
-      message: `STK push prompt sent to ${formattedPhone}. Please check your phone and enter your Mobile Money PIN.`,
+      message: `Deposit request logged. Please send UGX ${parsedAmount.toLocaleString()} via Mobile Money to our official collection line. Your wallet will be credited automatically upon confirmation.`,
       reference: txReference,
-      transactionId: transactionId
+      transactionId: result.insertId
     });
 
   } catch (error) {
-    console.error('STK Push Error:', error.message);
+    console.error('Deposit Initiation Error:', error.message);[cite: 10]
     return res.status(500).json({ 
       success: false, 
-      message: error.message || 'Failed to initiate STK push deposit.' 
+      message: error.message || 'Failed to initiate deposit.' 
     });
   }
 };
 
 /**
- * Controller: Check Status of Pending Deposit (Polling Endpoint)
+ * Controller: Check Status of Pending Deposit (Polling Endpoint)[cite: 10]
  */
 exports.checkDepositStatus = async (req, res) => {
   try {
-    const { reference } = req.params;
-    const userId = req.user.id;
+    const { reference } = req.params;[cite: 10]
+    const userId = req.user.id;[cite: 10]
 
     const [rows] = await db.execute(
       `SELECT id, reference, amount, status, created_at FROM transactions WHERE reference = ? AND user_id = ?`,
@@ -108,26 +91,83 @@ exports.checkDepositStatus = async (req, res) => {
       transaction: rows[0]
     });
   } catch (error) {
-    console.error('Check Status Error:', error);
+    console.error('Check Status Error:', error);[cite: 10]
     return res.status(500).json({ message: 'Server error checking status.' });
   }
 };
 
 /**
- * Helper function to simulate/execute Telecom Aggregator API Call
+ * Controller: Handle Incoming SMS Webhook from Android Forwarder App
  */
-async function triggerTelecomAPI({ reference, phone, amount, network }) {
-  // Example mock response. In production, integrate with:
-  // - Yo! Payments (YoPayments.deposit)
-  // - Beyonic / Flutterwave / Relnoy Mobile Money
-  // - Direct MTN MoMo API Collection (`POST /collection/v1_0/requesttopay`)
-  
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        status: 'PENDING_USER_PIN',
-        externalRef: `TELCO-REF-${Date.now()}`
-      });
-    }, 800);
-  });
-}
+exports.handleSMSWebhook = async (req, res) => {
+  let connection;
+  try {
+    const { message, text } = req.body;
+    const smsBody = message || text || '';
+
+    console.log('Incoming SMS Webhook Received:', smsBody);
+
+    if (!smsBody) {
+      return res.status(400).json({ success: false, message: 'No SMS body received.' });
+    }
+
+    // 1. Extract amount from SMS text (matches "UGX 10,000" or "Shs 10,000")
+    const amountMatch = smsBody.match(/(?:UGX|Shs)\s*([\d,]+(?:\.\d+)?)/i);
+    if (!amountMatch) {
+      return res.status(400).json({ success: false, message: 'Could not parse amount from SMS text.' });
+    }
+    const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+
+    // 2. Extract sender phone number
+    const phoneMatch = smsBody.match(/(?:07\d{8}|2567\d{8})/);
+    if (!phoneMatch) {
+      return res.status(400).json({ success: false, message: 'Could not parse phone number from SMS text.' });
+    }
+    let phone = phoneMatch[0];
+    if (phone.startsWith('0')) {
+      phone = '256' + phone.substring(1);
+    }
+
+    connection = await db.getConnection();[cite: 10]
+    await connection.beginTransaction();
+
+    // 3. Find matching pending deposit transaction
+    const [transactions] = await connection.execute(
+      `SELECT id, user_id, amount, status FROM transactions 
+       WHERE transaction_type = 'deposit' AND status = 'pending' AND (phone_number = ? OR phone_number = ?) AND amount = ? 
+       ORDER BY created_at DESC LIMIT 1`,
+      [phone, '0' + phone.substring(3), amount]
+    );
+
+    if (transactions.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'No pending transaction matches this SMS.' });
+    }
+
+    const tx = transactions[0];
+
+    // 4. Mark transaction as completed
+    await connection.execute(
+      `UPDATE transactions SET status = 'completed' WHERE id = ?`,
+      [tx.id]
+    );
+
+    // 5. Automatically credit user's wallet balance
+    await connection.execute(
+      `UPDATE users SET balance = balance + ? WHERE id = ?`,
+      [tx.amount, tx.user_id]
+    );
+
+    await connection.commit();
+
+    console.log(`[SMS WEBHOOK SUCCESS] User ID ${tx.user_id} credited with UGX ${tx.amount}`);
+    return res.status(200).json({ success: true, message: 'Wallet credited successfully.' });
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('SMS Webhook Processing Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+};
