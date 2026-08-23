@@ -6,15 +6,15 @@ const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
 router.use(verifyToken, verifyAdmin);
 
-// Fetch registered members
+// Fetch registered members safely with dynamic column name checks
 router.get('/users', async (req, res) => {
   try {
     const [users] = await db.execute(
       `SELECT id, 
-              COALESCE(full_name, 'Member') AS full_name, 
-              phone_number, 
-              role, 
-              email, 
+              COALESCE(full_name, full_names, 'Member') AS full_name, 
+              COALESCE(phone_number, phone, 'N/A') AS phone_number, 
+              COALESCE(role, 'member') AS role, 
+              COALESCE(email, 'N/A') AS email, 
               created_at 
        FROM users 
        ORDER BY id DESC`
@@ -22,7 +22,7 @@ router.get('/users', async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error('Admin DB Error:', error);
-    res.status(500).json({ message: 'Database error fetching users' });
+    res.status(500).json({ message: 'Database error fetching users', error: error.message });
   }
 });
 
@@ -44,9 +44,8 @@ router.patch('/users/:id/role', async (req, res) => {
   }
 });
 
-// Create investment program (populates status and is_active)
+// Create investment program (populates status and is_active safely)
 router.post('/programs', async (req, res) => {
-  // FIXED: Removed duplicate share_price to prevent server crash
   const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
 
   if (!title || share_price === undefined || roi_percentage === undefined || !duration_days) {
@@ -54,7 +53,6 @@ router.post('/programs', async (req, res) => {
   }
 
   try {
-    // FIXED: Removed duplicate share_price column and value
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
        (title, share_price, roi_percentage, duration_days, image_url, description, status, is_active) 
