@@ -269,23 +269,30 @@
       btn.disabled = true;
       btn.textContent = 'Saving...';
 
-      const payload = {
-        title: document.getElementById('progTitle').value.trim(),
-        share_price: Number(document.getElementById('progPrice').value),
-        roi_percentage: Number(document.getElementById('progRoi').value),
-        duration_days: Number(document.getElementById('progDuration').value),
-        image_url: document.getElementById('progImage').value.trim() || null,
-        description: document.getElementById('progDesc').value.trim() || null
-      };
+      // Extract raw values from inputs
+      const title = document.getElementById('progTitle').value.trim();
+      const share_price = document.getElementById('progPrice').value;
+      const roi_percentage = document.getElementById('progRoi').value;
+      const duration_days = document.getElementById('progDuration').value;
+      const image_url = document.getElementById('progImage').value.trim() || null;
+      const description = document.getElementById('progDesc').value.trim() || null;
 
       try {
-        const res = await fetch(`${API_BASE}/admin/programs`, {
+        // Changed fetch URL to /investments/programs and updated body payload
+        const res = await fetch(`${API_BASE}/investments/programs`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            title,
+            share_price: parseFloat(share_price),
+            roi_percentage: parseFloat(roi_percentage),
+            duration_days: parseInt(duration_days),
+            image_url,
+            description
+          })
         });
 
         const data = await res.json();
