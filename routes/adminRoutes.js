@@ -46,9 +46,9 @@ router.patch('/users/:id/role', async (req, res) => {
 
 // Create investment program (populates status and is_active)
 router.post('/programs', async (req, res) => {
-  const { title, share_price, amount_per_share, roi_percentage, duration_days, image_url, description } = req.body;
+  const { title, share_price, share_price, roi_percentage, duration_days, image_url, description } = req.body;
 
-  const price = share_price !== undefined ? share_price : amount_per_share;
+  const price = share_price !== undefined ? share_price : share_price;
 
   if (!title || price === undefined || roi_percentage === undefined || !duration_days) {
     return res.status(400).json({ message: 'Missing required program fields' });
@@ -57,7 +57,7 @@ router.post('/programs', async (req, res) => {
   try {
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, share_price, amount_per_share, roi_percentage, duration_days, image_url, description, status, is_active) 
+       (title, share_price, share_price, roi_percentage, duration_days, image_url, description, status, is_active) 
        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1)`,
       [
         title, 

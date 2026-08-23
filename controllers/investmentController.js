@@ -4,7 +4,7 @@ exports.getActivePrograms = async (req, res) => {
   try {
     const [programs] = await db.execute(
       `SELECT id, title, description, 
-              COALESCE(share_price, amount_per_share) AS share_price, 
+              COALESCE(share_price, share_price) AS share_price, 
               roi_percentage, duration_days, image_url 
        FROM investment_programs 
        WHERE status = 'active' OR is_active = 1 OR is_active = TRUE 
@@ -37,7 +37,7 @@ exports.purchaseShares = async (req, res) => {
     await connection.beginTransaction();
 
     const [programRows] = await connection.execute(
-      `SELECT id, title, COALESCE(share_price, amount_per_share) AS share_price, 
+      `SELECT id, title, COALESCE(share_price, share_price) AS share_price, 
               roi_percentage, duration_days, status, is_active 
        FROM investment_programs WHERE id = ? FOR UPDATE`,
       [program_id]

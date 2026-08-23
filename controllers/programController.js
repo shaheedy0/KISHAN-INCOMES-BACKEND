@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 exports.createProgram = async (req, res) => {
-  const { title, description, amount_per_share, share_price, roi_percentage, duration_days } = req.body;
-  const price = share_price !== undefined ? share_price : amount_per_share;
+  const { title, description, share_price, share_price, roi_percentage, duration_days } = req.body;
+  const price = share_price !== undefined ? share_price : share_price;
 
   if (!title || price === undefined || !roi_percentage || !duration_days) {
     return res.status(400).json({ message: 'Title, price per share, ROI, and duration are required.' });
@@ -34,8 +34,8 @@ exports.createProgram = async (req, res) => {
 
 exports.updateProgram = async (req, res) => {
   const { id } = req.params;
-  const { title, description, amount_per_share, share_price, roi_percentage, duration_days, is_active, image_url } = req.body;
-  const price = share_price !== undefined ? share_price : amount_per_share;
+  const { title, description, share_price, share_price, roi_percentage, duration_days, is_active, image_url } = req.body;
+  const price = share_price !== undefined ? share_price : share_price;
 
   try {
     const [existing] = await db.execute('SELECT * FROM investment_programs WHERE id = ?', [id]);
