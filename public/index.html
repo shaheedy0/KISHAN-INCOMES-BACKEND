@@ -151,6 +151,18 @@
 
     <!-- Investment Dashboard Section -->
     <section id="dashboard-section" class="hidden mt-6">
+      
+      <!-- Wallet & Mobile Money Deposit Widget Card -->
+      <div class="bg-white rounded-2xl shadow-md border border-gray-200 p-6 mb-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div>
+          <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">My Sacco Wallet</h3>
+          <p class="text-2xl sm:text-3xl font-extrabold text-emerald-700 mt-1" id="userWalletBalance">UGX 0</p>
+        </div>
+        <button onclick="openDepositModal()" class="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-5 py-3 rounded-xl shadow transition flex items-center justify-center gap-2">
+          <span>+</span> Deposit via Mobile Money (MTN / Airtel)
+        </button>
+      </div>
+
       <div class="flex justify-between items-center mb-6">
         <div>
           <h2 class="text-2xl font-bold text-gray-800">Investment Programs</h2>
@@ -173,7 +185,7 @@
     </section>
   </main>
 
-  <!-- EMBEDDED MODAL COMPONENT -->
+  <!-- EMBEDDED INVESTMENT MODAL COMPONENT -->
   <div id="investModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
       
@@ -247,6 +259,48 @@
             Confirm & Pay From Wallet
           </button>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMBEDDED MOBILE MONEY DEPOSIT MODAL -->
+  <div id="depositModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+      
+      <!-- Header -->
+      <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-lg">Deposit via Mobile Money</h3>
+          <p class="text-xs text-emerald-300">Instant MTN & Airtel STK push deposit</p>
+        </div>
+        <button onclick="closeDepositModal()" class="text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-4">
+        <form id="depositForm" onsubmit="handleDeposit(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Amount (UGX):</label>
+            <input type="number" id="depositAmount" min="500" required placeholder="5000" class="w-full px-3 py-2.5 text-sm font-bold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Phone Number:</label>
+            <input type="text" id="depositPhone" placeholder="077XXXXXXXX or 070XXXXXXXX" required class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Network Provider:</label>
+            <select id="depositNetwork" class="w-full px-3 py-2.5 text-sm font-semibold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+              <option value="MTN">MTN Uganda</option>
+              <option value="AIRTEL">Airtel Uganda</option>
+            </select>
+          </div>
+          
+          <button type="submit" id="depositSubmitBtn" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg cursor-pointer">Send STK Push</button>
+          <button type="button" onclick="closeDepositModal()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">Cancel</button>
+        </form>
+        <p id="depositStatus" class="text-center text-xs font-medium mt-2"></p>
       </div>
     </div>
   </div>
@@ -402,6 +456,7 @@
       document.getElementById('user-display').textContent = user.full_name;
 
       loadPrograms();
+      fetchUserWallet(); // Fetch current wallet balance on load
     }
 
     // Logout Member
@@ -411,7 +466,75 @@
       location.reload();
     }
 
-    // Modal Controls
+    // Wallet Balance & Deposit Controls
+    async function fetchUserWallet() {
+      try {
+        const token = localStorage.getItem('kishan_token');
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data && data.balance !== undefined) {
+          document.getElementById('userWalletBalance').innerText = `UGX ${Number(data.balance).toLocaleString()}`;
+        }
+      } catch (err) {
+        console.error('Error fetching wallet balance:', err);
+      }
+    }
+
+    function openDepositModal() {
+      document.getElementById('depositModal').classList.remove('hidden');
+      document.getElementById('depositStatus').innerText = '';
+    }
+
+    function closeDepositModal() {
+      document.getElementById('depositModal').classList.add('hidden');
+    }
+
+    async function handleDeposit(event) {
+      event.preventDefault();
+      const amount = document.getElementById('depositAmount').value;
+      const phone_number = document.getElementById('depositPhone').value;
+      const network = document.getElementById('depositNetwork').value;
+      const statusEl = document.getElementById('depositStatus');
+      const submitBtn = document.getElementById('depositSubmitBtn');
+
+      statusEl.innerText = "Sending STK push to your phone...";
+      statusEl.style.color = "orange";
+      submitBtn.disabled = true;
+
+      try {
+        const token = localStorage.getItem('kishan_token');
+        const res = await fetch(`${API_BASE}/deposit/stk-push`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ amount, phone_number, network })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.innerText = data.message || "STK push sent! Please approve payment on your phone.";
+          statusEl.style.color = "green";
+          setTimeout(() => {
+            closeDepositModal();
+            fetchUserWallet();
+          }, 4000);
+        } else {
+          statusEl.innerText = data.message || "Deposit failed.";
+          statusEl.style.color = "red";
+        }
+      } catch (err) {
+        statusEl.innerText = "Network error processing deposit.";
+        statusEl.style.color = "red";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    }
+
+    // Investment Modal Controls
     async function openInvestModal() {
       document.getElementById('investModal').classList.remove('hidden');
       showInvestAlert('', 'hidden');
@@ -511,6 +634,7 @@
         setTimeout(() => {
           closeInvestModal();
           loadPrograms();
+          fetchUserWallet(); // Refresh wallet balance after purchase
         }, 2000);
 
       } catch (err) {
