@@ -1,4 +1,4 @@
-const db = require('../config/db'); // MySQL pool connection (mysql2/promise)
+const db = require('../config/db');
 const crypto = require('crypto');
 
 /**
@@ -23,7 +23,7 @@ function formatUGPhoneNumber(phone) {
  */
 exports.initiateSTKPush = async (req, res) => {
   try {
-    const userId = req.user.id; // Extracted from JWT auth middleware
+    const userId = req.user.id;
     const { phone_number, amount, network } = req.body;
 
     if (!phone_number || !amount || !network) {
@@ -173,7 +173,7 @@ exports.handleSMSWebhook = async (req, res) => {
       [tx.id]
     );
 
-    // 7. Automatically credit user's WALLET balance (Fixed from users table)
+    // 7. Automatically credit user's WALLET balance (✅ Correct table)
     await connection.execute(
       `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [tx.amount, tx.user_id]

@@ -29,7 +29,7 @@ exports.register = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
     const userReferralCode = 'KISHAN-' + Math.floor(100000 + Math.random() * 900000);
 
-    // 3. Insert user record
+    // 3. Insert user record (without balance column)
     const [result] = await db.execute(
       `INSERT INTO users (full_name, phone_number, password_hash, referral_code) VALUES (?, ?, ?, ?)`,
       [full_name, phone_number, passwordHash, userReferralCode]
@@ -72,8 +72,9 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
     // Fetch user's wallet balance from the wallets table
-    const [wallets] = await db.execute('SELECT balance FROM wallets WHERE user_id = ?', [user.id]);
+    const [wallets] = await db.execute('SELECT balance, bonus_balance FROM wallets WHERE user_id = ?', [user.id]);
     const balance = wallets.length > 0 ? wallets[0].balance : 0.00;
+    const bonus_balance = wallets.length > 0 ? wallets[0].bonus_balance : 0.00;
 
     const token = jwt.sign(
       { id: user.id, role: user.role, phone: user.phone_number },
@@ -90,7 +91,9 @@ exports.login = async (req, res) => {
         full_name: user.full_name, 
         phone_number: user.phone_number,
         role: user.role,
-        balance: balance 
+        balance: balance,
+        bonus_balance: bonus_balance,
+        referral_code: user.referral_code
       } 
     });
   } catch (error) {
@@ -98,7 +101,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// ✅ NEW: Get current user profile with wallet balances
+// ✅ Get current user profile with wallet balances
 exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
