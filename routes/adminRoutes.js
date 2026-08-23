@@ -6,12 +6,12 @@ const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
 router.use(verifyToken, verifyAdmin);
 
-// Fetch registered members with column fallback
+// Fetch registered members
 router.get('/users', async (req, res) => {
   try {
     const [users] = await db.execute(
       `SELECT id, 
-              COALESCE(full_name, full_names, 'Member') AS full_name, 
+              COALESCE(full_name, 'Member') AS full_name, 
               phone_number, 
               role, 
               email, 
@@ -46,23 +46,22 @@ router.patch('/users/:id/role', async (req, res) => {
 
 // Create investment program (populates status and is_active)
 router.post('/programs', async (req, res) => {
-  const { title, share_price, share_price, roi_percentage, duration_days, image_url, description } = req.body;
+  // FIXED: Removed duplicate share_price to prevent server crash
+  const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
 
-  const price = share_price !== undefined ? share_price : share_price;
-
-  if (!title || price === undefined || roi_percentage === undefined || !duration_days) {
+  if (!title || share_price === undefined || roi_percentage === undefined || !duration_days) {
     return res.status(400).json({ message: 'Missing required program fields' });
   }
 
   try {
+    // FIXED: Removed duplicate share_price column and value
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, share_price, share_price, roi_percentage, duration_days, image_url, description, status, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1)`,
+       (title, share_price, roi_percentage, duration_days, image_url, description, status, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, 'active', 1)`,
       [
         title, 
-        parseFloat(price),
-        parseFloat(price),
+        parseFloat(share_price),
         parseFloat(roi_percentage), 
         parseInt(duration_days), 
         image_url || null, 
