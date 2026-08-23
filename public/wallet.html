@@ -203,15 +203,46 @@
             </button>
           </form>
 
-          <div id="waitingState" class="hidden text-center py-6 space-y-4">
-            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-600 border-t-transparent"></div>
-            <div>
-              <h4 class="font-bold text-gray-800 text-sm">PIN Prompt Sent!</h4>
-              <p class="text-xs text-gray-500 mt-1">Please check your phone screen and enter your Mobile Money PIN to authorize the deposit.</p>
+          <div id="waitingState" class="hidden py-4 space-y-4">
+            <div class="bg-amber-50 border border-amber-300 p-4 rounded-xl space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse"></span>
+                  Status: Pending Payment
+                </span>
+                <span class="text-[11px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded">Airtel Merchant</span>
+              </div>
+              
+              <p class="text-xs text-amber-900 leading-relaxed">
+                Please complete payment to <strong>Airtel Merchant Code: 7183127 (Kishan Incomes Ltd)</strong>.
+              </p>
+
+              <div class="bg-white p-3 rounded-xl border border-amber-200 text-center space-y-1">
+                <p class="text-[11px] text-gray-500 font-bold uppercase">Merchant Code</p>
+                <p class="text-2xl font-extrabold text-emerald-800 tracking-wider font-mono">7183127</p>
+                <p class="text-xs font-semibold text-gray-700">Kishan Incomes Ltd</p>
+              </div>
+
+              <div class="bg-amber-100/60 p-2.5 rounded-lg text-[11px] text-amber-900 space-y-1">
+                <p class="font-bold">How to pay:</p>
+                <ol class="list-decimal list-inside space-y-0.5 text-gray-700">
+                  <li>Dial <strong>*185*9#</strong> or <strong>*165#</strong></li>
+                  <li>Select <strong>Merchant Payment</strong></li>
+                  <li>Enter Merchant Code: <strong>7183127</strong></li>
+                  <li>Enter Amount & your PIN to authorize</li>
+                </ol>
+              </div>
+
+              <div class="text-center text-[11px] text-gray-500 pt-1">
+                Reference: <span id="pollRef" class="font-mono font-bold text-gray-800"></span>
+              </div>
             </div>
-            <div class="bg-amber-50 border border-amber-200 text-amber-800 text-[11px] p-3 rounded-xl">
-              Reference: <span id="pollRef" class="font-mono font-bold"></span>
-            </div>
+
+            <p class="text-center text-xs text-gray-500 animate-pulse">Awaiting payment confirmation...</p>
+            
+            <button type="button" onclick="resetModalState()" class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">
+                Cancel & Go Back
+            </button>
           </div>
         </div>
       </div>
