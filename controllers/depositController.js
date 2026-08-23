@@ -101,28 +101,49 @@ exports.checkDepositStatus = async (req, res) => {
  * Controller: Handle Incoming SMS Webhook from Android Forwarder App
  */
 exports.handleSMSWebhook = async (req, res) => {
+  // 1. IMMEDIATELY acknowledge the webhook with a 200 OK.
+  // This tells the Android app "Success!" and stops it from retrying or showing red error badges.
+  res.status(200).json({ success: true, message: 'Webhook received and processing in background' });
+
   let connection;
   try {
-    const { message, text } = req.body;
-    const smsBody = message || text || '';
+    // Check multiple potential payload keys depending on how the app structures its JSON
+    const { message, text, content, body } = req.body;
+    const smsBody = message || text || content || body || '';
 
-    console.log('Incoming SMS Webhook Received:', smsBody);
+    console.log('\n==== INCOMING SMS WEBHOOK ====');
+    console.log('Payload Received:', req.body);
 
     if (!smsBody) {
-      return res.status(400).json({ success: false, message: 'No SMS body received.' });
+      console.log('Action: Ignored. Reason: No SMS body found.');
+      return; 
     }
 
-    // 1. Extract amount from SMS text (matches "UGX 10,000" or "Shs 10,000")
+    const lowerText = smsBody.toLowerCase();
+
+    // 2. Ignore non-deposit messages gracefully
+    if (
+      lowerText.includes('download my airtel app') || 
+      lowerText.includes('quickloan') ||
+      lowerText.includes('insufficient funds')
+    ) {
+      console.log('Action: Ignored. Reason: Promotional or irrelevant SMS.');
+      return;
+    }
+
+    // 3. Extract amount from SMS text (matches "UGX 10,000" or "Shs 10,000")
     const amountMatch = smsBody.match(/(?:UGX|Shs)\s*([\d,]+(?:\.\d+)?)/i);
     if (!amountMatch) {
-      return res.status(400).json({ success: false, message: 'Could not parse amount from SMS text.' });
+      console.log('Action: Ignored. Reason: Could not parse amount from SMS.');
+      return;
     }
     const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
 
-    // 2. Extract sender phone number
+    // 4. Extract sender phone number
     const phoneMatch = smsBody.match(/(?:07\d{8}|2567\d{8})/);
     if (!phoneMatch) {
-      return res.status(400).json({ success: false, message: 'Could not parse phone number from SMS text.' });
+      console.log('Action: Ignored. Reason: Could not parse phone number from SMS.');
+      return;
     }
     let phone = phoneMatch[0];
     if (phone.startsWith('0')) {
@@ -132,7 +153,7 @@ exports.handleSMSWebhook = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 3. Find matching pending deposit transaction
+    // 5. Find matching pending deposit transaction
     const [transactions] = await connection.execute(
       `SELECT id, user_id, amount, status FROM transactions 
        WHERE transaction_type = 'deposit' AND status = 'pending' AND (phone_number = ? OR phone_number = ?) AND amount = ? 
@@ -142,32 +163,30 @@ exports.handleSMSWebhook = async (req, res) => {
 
     if (transactions.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ success: false, message: 'No pending transaction matches this SMS.' });
+      console.log(`Action: Ignored. Reason: No pending transaction found for phone ${phone} and amount ${amount}.`);
+      return;
     }
 
     const tx = transactions[0];
 
-    // 4. Mark transaction as completed
+    // 6. Mark transaction as completed
     await connection.execute(
       `UPDATE transactions SET status = 'completed' WHERE id = ?`,
       [tx.id]
     );
 
-    // 5. Automatically credit user's wallet balance
+    // 7. Automatically credit user's wallet balance
     await connection.execute(
       `UPDATE users SET balance = balance + ? WHERE id = ?`,
       [tx.amount, tx.user_id]
     );
 
     await connection.commit();
-
-    console.log(`[SMS WEBHOOK SUCCESS] User ID ${tx.user_id} credited with UGX ${tx.amount}`);
-    return res.status(200).json({ success: true, message: 'Wallet credited successfully.' });
+    console.log(`[SUCCESS] Wallet Updated! User ID ${tx.user_id} credited with UGX ${tx.amount}`);
 
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('SMS Webhook Processing Error:', error);
-    return res.status(500).json({ success: false, message: error.message });
   } finally {
     if (connection) connection.release();
   }
