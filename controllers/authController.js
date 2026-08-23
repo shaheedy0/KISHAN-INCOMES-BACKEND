@@ -97,3 +97,31 @@ exports.login = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ✅ NEW: Get current user profile with wallet balances
+exports.getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [userRows] = await db.execute(
+      'SELECT id, full_name, phone_number, role, referral_code FROM users WHERE id = ?',
+      [userId]
+    );
+    if (userRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const [walletRows] = await db.execute(
+      'SELECT balance, bonus_balance FROM wallets WHERE user_id = ?',
+      [userId]
+    );
+    const balance = walletRows.length > 0 ? walletRows[0].balance : 0;
+    const bonus_balance = walletRows.length > 0 ? walletRows[0].bonus_balance : 0;
+
+    res.json({
+      success: true,
+      user: { ...userRows[0], balance, bonus_balance }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

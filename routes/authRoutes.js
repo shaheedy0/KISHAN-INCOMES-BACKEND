@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const { register, login } = require('../controllers/authController');
+const { register, login, getProfile } = require('../controllers/authController');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // Flexibly validate phone numbers (accepts 07... or 256...)
 const phoneRegex = /^(?:256|0)[7][0-9]{8}$/;
@@ -36,5 +37,6 @@ const validate = (req, res, next) => {
 
 router.post('/register', registerRules, validate, register);
 router.post('/login', login);
+router.get('/me', verifyToken, getProfile);  // ✅ NEW
 
 module.exports = router;

@@ -53,17 +53,18 @@ exports.purchaseShares = async (req, res) => {
     const roiMultiplier = 1 + (parseFloat(program.roi_percentage) / 100);
     const expectedPayout = totalCost * roiMultiplier;
 
-    const [userRows] = await connection.execute(
-      `SELECT balance FROM users WHERE id = ? FOR UPDATE`,
+    // ✅ Lock wallet row instead of users table
+    const [walletRows] = await connection.execute(
+      `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [userId]
     );
 
-    if (userRows.length === 0) {
+    if (walletRows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: 'User account not found.' });
+      return res.status(404).json({ message: 'Wallet not found for this user.' });
     }
 
-    const currentBalance = parseFloat(userRows[0].balance || 0);
+    const currentBalance = parseFloat(walletRows[0].balance || 0);
 
     if (currentBalance < totalCost) {
       await connection.rollback();
@@ -75,8 +76,9 @@ exports.purchaseShares = async (req, res) => {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
 
+    // ✅ Deduct from wallets
     await connection.execute(
-      `UPDATE users SET balance = balance - ? WHERE id = ?`,
+      `UPDATE wallets SET balance = balance - ? WHERE user_id = ?`,
       [totalCost, userId]
     );
 

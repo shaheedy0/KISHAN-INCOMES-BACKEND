@@ -99,7 +99,7 @@
           <h2 class="text-lg font-bold text-gray-800">Locked Sacco Investments</h2>
           <p class="text-xs text-gray-500">Active programs growing at specified interest rates until maturity date.</p>
         </div>
-        <button onclick="fetchWalletData()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-semibold transition">
+        <button onclick="fetchWalletData(); fetchBalance();" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-semibold transition">
           Refresh Wallet
         </button>
       </div>
@@ -359,6 +359,7 @@
       setupNetworkAutoDetect('depositPhone', 'network');
       setupNetworkAutoDetect('withdrawalPhone', 'withdrawNetwork');
 
+      fetchBalance(); // ✅ Load balance on load
       fetchWalletData();
     });
 
@@ -380,6 +381,30 @@
             }
           }
         });
+      }
+    }
+
+    // ✅ NEW: Fetch balance from /api/auth/me
+    async function fetchBalance() {
+      try {
+        const token = localStorage.getItem('kishan_token');
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch balance');
+        const data = await res.json();
+        if (data.success && data.user) {
+          const balance = Number(data.user.balance) || 0;
+          document.getElementById('balance-display').innerText = `UGX ${balance.toLocaleString()}`;
+          document.getElementById('modalAvailableBalance').innerText = `UGX ${balance.toLocaleString()}`;
+          currentLiquidBalance = balance;
+
+          // Bonus balance
+          const bonus = Number(data.user.bonus_balance) || 0;
+          document.getElementById('bonus-display').innerText = `UGX ${bonus.toLocaleString()}`;
+        }
+      } catch (err) {
+        console.error('Error fetching balance:', err);
       }
     }
 
@@ -481,7 +506,8 @@
               clearInterval(pollInterval);
               alert(`Deposit of UGX ${parseFloat(data.transaction.amount).toLocaleString()} received successfully!`);
               closeDepositModal();
-              if (typeof fetchWalletData === 'function') fetchWalletData();
+              fetchBalance();    // ✅ Refresh balance
+              fetchWalletData(); // ✅ Refresh investments
             } else if (data.transaction.status === 'failed') {
               clearInterval(pollInterval);
               alert('Deposit transaction failed or was cancelled by user.');
@@ -500,9 +526,8 @@
       modal.classList.remove('hidden');
       showWithdrawAlert('', 'hidden');
 
-      const balanceText = document.getElementById('balance-display')?.textContent || 'UGX 0';
-      document.getElementById('modalAvailableBalance').textContent = balanceText;
-      currentLiquidBalance = parseFloat(balanceText.replace(/[^\d.]/g, '')) || 0;
+      // Use current balance from fetchBalance
+      document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
 
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
       if (user.phone_number) {
@@ -568,7 +593,8 @@
         
         setTimeout(() => {
           closeWithdrawalModal();
-          if (typeof fetchWalletData === 'function') fetchWalletData();
+          fetchBalance();    // ✅ Refresh balance after withdrawal
+          fetchWalletData(); // ✅ Refresh investments
         }, 2000);
 
       } catch (err) {

@@ -353,6 +353,7 @@
     const RENDER_HOST = 'https://kishan-incomes.onrender.com';
     const API_BASE = `${RENDER_HOST}/api`;
     let activeProgramsList = [];
+    let depositPollInterval = null;
 
     // Auto-check authentication state & role on load
     window.addEventListener('DOMContentLoaded', () => {
@@ -399,6 +400,24 @@
 
     function hideAlert() {
       document.getElementById('authAlert').classList.add('hidden');
+    }
+
+    // ✅ NEW: Fetch current wallet balance
+    async function fetchBalance() {
+      try {
+        const token = localStorage.getItem('kishan_token');
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch balance');
+        const data = await res.json();
+        if (data.success && data.user) {
+          document.getElementById('userWalletBalance').innerText =
+            `UGX ${Number(data.user.balance).toLocaleString()}`;
+        }
+      } catch (err) {
+        console.error('Error fetching balance:', err);
+      }
     }
 
     // Handle Member Login with Role-Based Redirection
@@ -499,7 +518,7 @@
       document.getElementById('user-display').textContent = user.full_name;
 
       loadPrograms();
-      fetchUserWallet(); // Fetch current wallet balance on load
+      fetchBalance(); // ✅ Load balance on login
     }
 
     // Logout Member
@@ -510,21 +529,6 @@
     }
 
     // Wallet Balance & Deposit Controls
-    async function fetchUserWallet() {
-      try {
-        const token = localStorage.getItem('kishan_token');
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (data && data.balance !== undefined) {
-          document.getElementById('userWalletBalance').innerText = `UGX ${Number(data.balance).toLocaleString()}`;
-        }
-      } catch (err) {
-        console.error('Error fetching wallet balance:', err);
-      }
-    }
-
     function openDepositModal() {
       document.getElementById('depositModal').classList.remove('hidden');
       resetDepositForm();
@@ -532,6 +536,7 @@
 
     function closeDepositModal() {
       document.getElementById('depositModal').classList.add('hidden');
+      if (depositPollInterval) clearInterval(depositPollInterval);
     }
 
     function resetDepositForm() {
@@ -571,6 +576,8 @@
           document.getElementById('depositInfoBox').classList.remove('hidden');
           document.getElementById('depositRefText').innerText = data.reference || "N/A";
           statusEl.innerText = "";
+          // ✅ Start polling for status
+          startDepositPolling(data.reference, token);
         } else {
           statusEl.innerText = data.message || "Deposit failed.";
           statusEl.style.color = "red";
@@ -581,6 +588,43 @@
         statusEl.style.color = "red";
         submitBtn.disabled = false;
       } 
+    }
+
+    // ✅ Polling function to check deposit status and refresh balance
+    function startDepositPolling(reference, token) {
+      let checks = 0;
+      if (depositPollInterval) clearInterval(depositPollInterval);
+      depositPollInterval = setInterval(async () => {
+        checks++;
+        if (checks > 20) {
+          clearInterval(depositPollInterval);
+          alert('Transaction timed out. If you entered your PIN, your balance will update automatically.');
+          closeDepositModal();
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API_BASE}/deposit/status/${reference}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+
+          if (data.success && data.transaction) {
+            if (data.transaction.status === 'completed') {
+              clearInterval(depositPollInterval);
+              alert(`Deposit of UGX ${parseFloat(data.transaction.amount).toLocaleString()} received successfully!`);
+              closeDepositModal();
+              fetchBalance(); // ✅ Refresh balance after deposit
+            } else if (data.transaction.status === 'failed') {
+              clearInterval(depositPollInterval);
+              alert('Deposit transaction failed or was cancelled by user.');
+              resetDepositForm();
+            }
+          }
+        } catch (e) {
+          console.error('Polling error:', e);
+        }
+      }, 3000);
     }
 
     // Investment Modal Controls
@@ -683,7 +727,7 @@
         setTimeout(() => {
           closeInvestModal();
           loadPrograms();
-          fetchUserWallet(); // Refresh wallet balance after purchase
+          fetchBalance(); // ✅ Refresh balance after investment
         }, 2000);
 
       } catch (err) {
