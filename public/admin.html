@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - KISHAN INCOME</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Admin Auth Check -->
-  <script src="admin-auth-check.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800 flex flex-col justify-between font-sans">
 
@@ -24,7 +22,7 @@
         💰 Wallet
       </a>
       <span id="adminDisplay" class="font-medium text-sm bg-gray-800 px-3 py-1 rounded-full border border-gray-700">Admin</span>
-      <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
+      <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
     </div>
   </header>
 
@@ -145,254 +143,272 @@
 
   </main>
 
+  <!-- ✅ All JavaScript consolidated here -->
   <script>
-    // ✅ Use the correct token key
-    const API_BASE = 'https://kishan-incomes.onrender.com/api';
-    const token = localStorage.getItem('kishan_token');
-    let cachedUsers = [];
+    (function() {
+      'use strict';
 
-    // If no token, redirect to login
-    if (!token) {
-      alert('Please log in first.');
-      window.location.href = 'index.html';
-    }
+      // ✅ Configuration
+      const API_BASE = 'https://kishan-incomes.onrender.com/api';
+      const token = localStorage.getItem('kishan_token');
+      let cachedUsers = [];
 
-    // Load data when page loads
-    window.addEventListener('DOMContentLoaded', async () => {
-      // Display admin info
-      const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
-      const adminDisplay = document.getElementById('adminDisplay');
-      if (adminDisplay && user.full_name) {
-        adminDisplay.textContent = `👑 ${user.full_name}`;
-      }
-      
-      // Load data
-      await Promise.all([
-        loadUsers(),
-        loadAdminPrograms()
-      ]);
-    });
-
-    // ✅ Load Users with better error handling
-    async function loadUsers() {
-      const tbody = document.getElementById('usersTableBody');
-      tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Loading member data...</td></tr>';
-      
-      try {
-        console.log('Fetching users from:', `${API_BASE}/admin/users`);
-        const response = await fetch(`${API_BASE}/admin/users`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log('Users response status:', response.status);
-        const data = await response.json();
-        console.log('Users data:', data);
-
-        if (!response.ok) {
-          throw new Error(data.message || `HTTP ${response.status}`);
-        }
-
-        const usersList = Array.isArray(data) ? data : (data.users || data.data || []);
-
-        if (usersList.length > 0) {
-          cachedUsers = usersList;
-          document.getElementById('statTotalUsers').textContent = usersList.length;
-          renderUsersTable(usersList);
-        } else {
-          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
-        }
-      } catch (error) {
-        console.error('Error loading users:', error);
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
-      }
-    }
-
-    function renderUsersTable(users) {
-      const tbody = document.getElementById('usersTableBody');
-      if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
+      // ✅ Auth Check
+      if (!token) {
+        alert('Please log in first.');
+        window.location.href = 'index.html';
         return;
       }
-      
-      tbody.innerHTML = users.map(user => {
-        const nameDisplay = user.full_name || user.full_names || user.email || 'N/A';
-        const roleDisplay = user.role || 'member';
 
-        return `
-          <tr class="hover:bg-gray-50">
-            <td class="p-3 font-mono text-xs">${user.id}</td>
-            <td class="p-3 font-semibold">${nameDisplay}</td>
-            <td class="p-3 font-mono">${user.phone_number || 'N/A'}</td>
-            <td class="p-3">
-              <span class="px-2 py-1 text-xs font-bold rounded ${roleDisplay === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
-                ${roleDisplay}
-              </span>
-            </td>
-            <td class="p-3">
-              <button onclick="toggleUserRole(${user.id}, '${roleDisplay}')" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded font-semibold transition">
-                Switch to ${roleDisplay === 'admin' ? 'Member' : 'Admin'}
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
+      // ✅ Verify user is admin
+      const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+      if (user.role !== 'admin') {
+        alert('Access denied. Admin privileges required.');
+        window.location.href = 'index.html';
+        return;
+      }
 
-    function filterUsers() {
-      const query = document.getElementById('userSearch').value.toLowerCase();
-      const filtered = cachedUsers.filter(u => 
-        (u.full_name && u.full_name.toLowerCase().includes(query)) ||
-        (u.phone_number && u.phone_number.includes(query)) ||
-        (u.email && u.email.toLowerCase().includes(query))
-      );
-      renderUsersTable(filtered);
-    }
+      // ✅ Display admin info
+      function displayAdminInfo() {
+        const adminDisplay = document.getElementById('adminDisplay');
+        if (adminDisplay && user.full_name) {
+          adminDisplay.textContent = `👑 ${user.full_name}`;
+        }
+      }
 
-    // ✅ Load Programs with better error handling
-    async function loadAdminPrograms() {
-      const tbody = document.getElementById('programsTableBody');
-      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>';
-      
-      try {
-        console.log('Fetching programs from:', `${API_BASE}/investments/programs`);
-        const res = await fetch(`${API_BASE}/investments/programs`);
-        console.log('Programs response status:', res.status);
-        const data = await res.json();
-        console.log('Programs data:', data);
+      // ✅ Load users
+      async function loadUsers() {
+        const tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Loading member data...</td></tr>';
+        
+        try {
+          const response = await fetch(`${API_BASE}/admin/users`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          const usersList = Array.isArray(data) ? data : (data.users || data.data || []);
 
-        const programsList = Array.isArray(data) ? data : (data.programs || data.data || []);
+          if (usersList.length > 0) {
+            cachedUsers = usersList;
+            document.getElementById('statTotalUsers').textContent = usersList.length;
+            renderUsersTable(usersList);
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
+          }
+        } catch (error) {
+          console.error('Error loading users:', error);
+          tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+        }
+      }
 
-        if (programsList.length > 0) {
-          document.getElementById('statTotalPrograms').textContent = programsList.length;
-          tbody.innerHTML = programsList.map(p => `
+      // ✅ Render users table
+      function renderUsersTable(users) {
+        const tbody = document.getElementById('usersTableBody');
+        if (!users || users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = users.map(user => {
+          const nameDisplay = user.full_name || user.full_names || user.email || 'N/A';
+          const roleDisplay = user.role || 'member';
+
+          return `
             <tr class="hover:bg-gray-50">
-              <td class="p-3">${p.id}</td>
-              <td class="p-3 font-semibold">${p.title}</td>
-              <td class="p-3">UGX ${Number(p.share_price).toLocaleString()}</td>
-              <td class="p-3 text-emerald-700 font-bold">+${p.roi_percentage}%</td>
-              <td class="p-3">${p.duration_days} Days</td>
+              <td class="p-3 font-mono text-xs">${user.id}</td>
+              <td class="p-3 font-semibold">${nameDisplay}</td>
+              <td class="p-3 font-mono">${user.phone_number || 'N/A'}</td>
               <td class="p-3">
-                <button onclick="deleteProgram(${p.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
-                  Delete
+                <span class="px-2 py-1 text-xs font-bold rounded ${roleDisplay === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                  ${roleDisplay}
+                </span>
+              </td>
+              <td class="p-3">
+                <button onclick="window.toggleUserRole(${user.id}, '${roleDisplay}')" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded font-semibold transition">
+                  Switch to ${roleDisplay === 'admin' ? 'Member' : 'Admin'}
                 </button>
               </td>
             </tr>
-          `).join('');
-        } else {
-          tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No investment programs available. Create one above!</td></tr>';
-        }
-      } catch (err) {
-        console.error('Error loading programs:', err);
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Error: ${err.message}</td></tr>`;
+          `;
+        }).join('');
       }
-    }
 
-    function toggleProgramForm() {
-      document.getElementById('programForm').classList.toggle('hidden');
-    }
+      // ✅ Filter users
+      window.filterUsers = function() {
+        const query = document.getElementById('userSearch').value.toLowerCase();
+        const filtered = cachedUsers.filter(u => 
+          (u.full_name && u.full_name.toLowerCase().includes(query)) ||
+          (u.phone_number && u.phone_number.includes(query)) ||
+          (u.email && u.email.toLowerCase().includes(query))
+        );
+        renderUsersTable(filtered);
+      };
 
-    async function handleCreateProgram(e) {
-      e.preventDefault();
-      const btn = document.getElementById('saveProgBtn');
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
-
-      const title = document.getElementById('progTitle').value.trim();
-      const share_price = document.getElementById('progPrice').value;
-      const roi_percentage = document.getElementById('progRoi').value;
-      const duration_days = document.getElementById('progDuration').value;
-      const image_url = document.getElementById('progImage').value.trim() || null;
-      const description = document.getElementById('progDesc').value.trim() || null;
-
-      try {
-        const res = await fetch(`${API_BASE}/investments/programs`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            title,
-            share_price: parseFloat(share_price),
-            roi_percentage: parseFloat(roi_percentage),
-            duration_days: parseInt(duration_days),
-            image_url,
-            description
-          })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || 'Failed to create program');
-        }
+      // ✅ Load programs
+      async function loadAdminPrograms() {
+        const tbody = document.getElementById('programsTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>';
         
-        alert('Investment program created successfully!');
-        document.getElementById('programForm').reset();
-        toggleProgramForm();
-        loadAdminPrograms();
-      } catch (err) {
-        alert(`Error: ${err.message}`);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save Program';
+        try {
+          const res = await fetch(`${API_BASE}/investments/programs`);
+          
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          
+          const data = await res.json();
+          const programsList = Array.isArray(data) ? data : (data.programs || data.data || []);
+
+          if (programsList.length > 0) {
+            document.getElementById('statTotalPrograms').textContent = programsList.length;
+            tbody.innerHTML = programsList.map(p => `
+              <tr class="hover:bg-gray-50">
+                <td class="p-3">${p.id}</td>
+                <td class="p-3 font-semibold">${p.title}</td>
+                <td class="p-3">UGX ${Number(p.share_price).toLocaleString()}</td>
+                <td class="p-3 text-emerald-700 font-bold">+${p.roi_percentage}%</td>
+                <td class="p-3">${p.duration_days} Days</td>
+                <td class="p-3">
+                  <button onclick="window.deleteProgram(${p.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No investment programs available. Create one above!</td></tr>';
+          }
+        } catch (err) {
+          console.error('Error loading programs:', err);
+          tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Error: ${err.message}</td></tr>`;
+        }
       }
-    }
 
-    async function toggleUserRole(userId, currentRole) {
-      const newRole = currentRole === 'admin' ? 'member' : 'admin';
-      if (!confirm(`Are you sure you want to change user ID ${userId} role to ${newRole}?`)) return;
+      // ✅ Toggle program form
+      window.toggleProgramForm = function() {
+        document.getElementById('programForm').classList.toggle('hidden');
+      };
 
-      try {
-        const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ role: newRole })
-        });
+      // ✅ Create program
+      window.handleCreateProgram = async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('saveProgBtn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to update role');
+        const title = document.getElementById('progTitle').value.trim();
+        const share_price = document.getElementById('progPrice').value;
+        const roi_percentage = document.getElementById('progRoi').value;
+        const duration_days = document.getElementById('progDuration').value;
+        const image_url = document.getElementById('progImage').value.trim() || null;
+        const description = document.getElementById('progDesc').value.trim() || null;
 
-        alert('Role updated successfully!');
+        try {
+          const res = await fetch(`${API_BASE}/investments/programs`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              title,
+              share_price: parseFloat(share_price),
+              roi_percentage: parseFloat(roi_percentage),
+              duration_days: parseInt(duration_days),
+              image_url,
+              description
+            })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.message || 'Failed to create program');
+          }
+          
+          alert('Investment program created successfully!');
+          document.getElementById('programForm').reset();
+          window.toggleProgramForm();
+          loadAdminPrograms();
+        } catch (err) {
+          alert(`Error: ${err.message}`);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Save Program';
+        }
+      };
+
+      // ✅ Toggle user role
+      window.toggleUserRole = async function(userId, currentRole) {
+        const newRole = currentRole === 'admin' ? 'member' : 'admin';
+        if (!confirm(`Are you sure you want to change user ID ${userId} role to ${newRole}?`)) return;
+
+        try {
+          const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ role: newRole })
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Failed to update role');
+
+          alert('Role updated successfully!');
+          loadUsers();
+        } catch (err) {
+          alert(err.message);
+        }
+      };
+
+      // ✅ Delete program
+      window.deleteProgram = async function(programId) {
+        if (!confirm(`Are you sure you want to delete program ID ${programId}?`)) return;
+
+        try {
+          const res = await fetch(`${API_BASE}/investments/programs/${programId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (!res.ok) throw new Error('Failed to delete program');
+          
+          alert('Program deleted successfully!');
+          loadAdminPrograms();
+        } catch (err) {
+          alert(err.message);
+        }
+      };
+
+      // ✅ Logout
+      window.handleLogout = function() {
+        localStorage.removeItem('kishan_token');
+        localStorage.removeItem('kishan_user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = 'index.html';
+      };
+
+      // ✅ Initialize on page load
+      document.addEventListener('DOMContentLoaded', function() {
+        displayAdminInfo();
         loadUsers();
-      } catch (err) {
-        alert(err.message);
-      }
-    }
-
-    async function deleteProgram(programId) {
-      if (!confirm(`Are you sure you want to delete program ID ${programId}?`)) return;
-
-      try {
-        const res = await fetch(`${API_BASE}/investments/programs/${programId}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!res.ok) throw new Error('Failed to delete program');
-        
-        alert('Program deleted successfully!');
         loadAdminPrograms();
-      } catch (err) {
-        alert(err.message);
-      }
-    }
+      });
 
-    // ✅ Logout function
-    function logout() {
-      localStorage.removeItem('kishan_token');
-      localStorage.removeItem('kishan_user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = 'index.html';
-    }
+    })();
   </script>
+
 </body>
 </html>
