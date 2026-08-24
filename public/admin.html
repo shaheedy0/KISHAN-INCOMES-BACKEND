@@ -146,29 +146,40 @@
   </main>
 
   <script>
-    const API_BASE = '/api';
-    const token = localStorage.getItem('kishan_token') || localStorage.getItem('token');
+    // ✅ Use the correct token key
+    const API_BASE = 'https://kishan-incomes.onrender.com/api';
+    const token = localStorage.getItem('kishan_token');
     let cachedUsers = [];
 
-    // Admin auth check runs on page load via admin-auth-check.js
-    // We'll also run our own initialization after auth check
+    // If no token, redirect to login
+    if (!token) {
+      alert('Please log in first.');
+      window.location.href = 'index.html';
+    }
+
+    // Load data when page loads
     window.addEventListener('DOMContentLoaded', async () => {
-      // The admin-auth-check.js will handle auth and call displayAdminInfo
-      // But we also need to initialize the page data
-      // Let's ensure the token is still available
-      if (!token) {
-        window.location.href = 'index.html';
-        return;
+      // Display admin info
+      const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+      const adminDisplay = document.getElementById('adminDisplay');
+      if (adminDisplay && user.full_name) {
+        adminDisplay.textContent = `👑 ${user.full_name}`;
       }
       
-      // Display admin info from admin-auth-check.js (it will set the display)
-      // But we also want to load data
-      loadUsers();
-      loadAdminPrograms();
+      // Load data
+      await Promise.all([
+        loadUsers(),
+        loadAdminPrograms()
+      ]);
     });
 
+    // ✅ Load Users with better error handling
     async function loadUsers() {
+      const tbody = document.getElementById('usersTableBody');
+      tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Loading member data...</td></tr>';
+      
       try {
+        console.log('Fetching users from:', `${API_BASE}/admin/users`);
         const response = await fetch(`${API_BASE}/admin/users`, {
           method: 'GET',
           headers: {
@@ -177,32 +188,36 @@
           }
         });
         
+        console.log('Users response status:', response.status);
         const data = await response.json();
-        const tbody = document.getElementById('usersTableBody');
-        tbody.innerHTML = '';
+        console.log('Users data:', data);
 
         if (!response.ok) {
-          tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">${data.message || 'Unauthorized access.'}</td></tr>`;
-          return;
+          throw new Error(data.message || `HTTP ${response.status}`);
         }
 
-        const usersList = Array.isArray(data) ? data : (data.users || []);
+        const usersList = Array.isArray(data) ? data : (data.users || data.data || []);
 
         if (usersList.length > 0) {
           cachedUsers = usersList;
-          document.getElementById('statTotalUsers').textContent = cachedUsers.length;
-          renderUsersTable(cachedUsers);
+          document.getElementById('statTotalUsers').textContent = usersList.length;
+          renderUsersTable(usersList);
         } else {
-          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">No registered members found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
         }
       } catch (error) {
         console.error('Error loading users:', error);
-        document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="5" class="p-4 text-center text-red-500">Failed to connect to backend server.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
       }
     }
 
     function renderUsersTable(users) {
       const tbody = document.getElementById('usersTableBody');
+      if (!users || users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
+        return;
+      }
+      
       tbody.innerHTML = users.map(user => {
         const nameDisplay = user.full_name || user.full_names || user.email || 'N/A';
         const roleDisplay = user.role || 'member';
@@ -237,11 +252,17 @@
       renderUsersTable(filtered);
     }
 
+    // ✅ Load Programs with better error handling
     async function loadAdminPrograms() {
+      const tbody = document.getElementById('programsTableBody');
+      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>';
+      
       try {
+        console.log('Fetching programs from:', `${API_BASE}/investments/programs`);
         const res = await fetch(`${API_BASE}/investments/programs`);
+        console.log('Programs response status:', res.status);
         const data = await res.json();
-        const tbody = document.getElementById('programsTableBody');
+        console.log('Programs data:', data);
 
         const programsList = Array.isArray(data) ? data : (data.programs || data.data || []);
 
@@ -262,11 +283,11 @@
             </tr>
           `).join('');
         } else {
-          tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">No investment programs available.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No investment programs available. Create one above!</td></tr>';
         }
       } catch (err) {
-        console.error(err);
-        document.getElementById('programsTableBody').innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-500">Failed to load programs.</td></tr>';
+        console.error('Error loading programs:', err);
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Error: ${err.message}</td></tr>`;
       }
     }
 
@@ -364,7 +385,14 @@
       }
     }
 
-    // Logout is defined in admin-auth-check.js
+    // ✅ Logout function
+    function logout() {
+      localStorage.removeItem('kishan_token');
+      localStorage.removeItem('kishan_user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'index.html';
+    }
   </script>
 </body>
 </html>
