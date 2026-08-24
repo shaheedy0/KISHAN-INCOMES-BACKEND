@@ -8,10 +8,34 @@ require('dotenv').config();
 const app = express();
 
 // ===== SECURITY MIDDLEWARE =====
-// Helmet sets secure HTTP headers
-app.use(helmet());
 
-// Global rate limiter: 100 requests per 15 minutes per IP
+// ✅ Customize Helmet to allow Tailwind and inline scripts
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "https://cdn.tailwindcss.com",
+          "'unsafe-inline'", // needed for our inline scripts
+        ],
+        styleSrc: [
+          "'self'",
+          "https://cdn.tailwindcss.com",
+          "'unsafe-inline'", // needed for Tailwind styles
+        ],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://kishan-incomes.onrender.com"],
+        // Add other necessary sources if needed
+      },
+    },
+    // Disable the 'upgradeInsecureRequests' to avoid issues with mixed content
+    upgradeInsecureRequests: false,
+  })
+);
+
+// Global rate limiter
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -20,20 +44,20 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Restrict CORS to your frontend domain only
+// CORS – allow only your frontend
 const corsOptions = {
-  origin: 'https://kishan-incomes.onrender.com', // your frontend URL
-  optionsSuccessStatus: 200
+  origin: 'https://kishan-incomes.onrender.com',
+  optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
-// ===== STANDARD MIDDLEWARE =====
+// Standard middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Helper function to safely load routes
+// Helper to load routes
 function loadModule(modulePath) {
   try {
     return require(modulePath);
@@ -43,7 +67,7 @@ function loadModule(modulePath) {
   }
 }
 
-// Load API Routes
+// Load routes
 const authRoutes = loadModule('./routes/authRoutes');
 const depositRoutes = loadModule('./routes/depositRoutes');
 const withdrawalRoutes = loadModule('./routes/withdrawalRoutes');
@@ -58,18 +82,18 @@ if (investmentRoutes) app.use('/api/investments', investmentRoutes);
 if (adminRoutes) app.use('/api/admin', adminRoutes);
 if (programRoutes) app.use('/api/programs', programRoutes);
 
-// Health check
+// Health endpoints
 app.get('/api', (req, res) => {
   res.status(200).json({
     status: 'success',
-    message: 'Kishan Income API is live and operational.'
+    message: 'Kishan Income API is live and operational.',
   });
 });
 app.get('/api/health', (req, res) => {
   res.send('Kishan Incomes API is running...');
 });
 
-// Frontend fallback
+// Frontend routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
