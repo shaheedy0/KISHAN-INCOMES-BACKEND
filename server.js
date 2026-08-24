@@ -46,7 +46,7 @@ const globalLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
 });
-app.use(globalLimiter);
+app.use('/api', globalLimiter);
 
 // CORS
 const corsOptions = {
