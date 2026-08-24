@@ -4,18 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - KISHAN INCOME</title>
-  
-  <!-- Fallback CSP to allow inline scripts & event handlers (in case server's CSP is not updated) -->
-  <meta http-equiv="Content-Security-Policy" 
-        content="default-src 'self' data: blob:; 
-                 script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: https://cdn.tailwindcss.com; 
-                 style-src 'self' 'unsafe-inline' https: http: https://cdn.tailwindcss.com; 
-                 img-src 'self' data: https: http:; 
-                 connect-src 'self' https: http: https://kishan-incomes.onrender.com; 
-                 font-src 'self' https: data:; 
-                 object-src 'none'; 
-                 script-src-attr 'unsafe-inline';">
-  
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .tab-active { border-bottom: 3px solid #059669; color: #065f46; }
@@ -41,19 +29,19 @@
 
   <main class="max-w-7xl mx-auto p-4 flex-grow w-full space-y-6">
 
-    <!-- Tabs Navigation -->
+    <!-- Tabs -->
     <div class="bg-white rounded-xl shadow border border-gray-200 p-2 flex flex-wrap gap-1">
       <button onclick="switchTab('overview')" id="tab-overview" class="tab-active px-4 py-2 text-sm font-semibold transition">📊 Overview</button>
       <button onclick="switchTab('users')" id="tab-users" class="tab-inactive px-4 py-2 text-sm font-semibold transition">👥 Users</button>
       <button onclick="switchTab('programs')" id="tab-programs" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📈 Programs</button>
       <button onclick="switchTab('investments')" id="tab-investments" class="tab-inactive px-4 py-2 text-sm font-semibold transition">💼 Active Investments</button>
       <button onclick="switchTab('announcements')" id="tab-announcements" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📢 Announcements</button>
+      <!-- ✅ NEW TAB -->
       <button onclick="switchTab('transactions')" id="tab-transactions" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📋 Pending Transactions</button>
     </div>
 
     <!-- ==================== TAB 1: OVERVIEW ==================== -->
     <div id="section-overview" class="space-y-6">
-      <!-- Stats Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
           <h4 class="text-xs uppercase font-bold text-gray-500">Registered Members</h4>
@@ -72,7 +60,6 @@
           <p id="statTotalBalance" class="text-2xl font-extrabold text-amber-800 mt-1">UGX 0</p>
         </div>
       </div>
-      <!-- Additional stats -->
       <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
         <h4 class="text-sm font-bold text-gray-700 mb-2">System Overview</h4>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -220,7 +207,6 @@
 
     <!-- ==================== TAB 5: ANNOUNCEMENTS ==================== -->
     <div id="section-announcements" class="hidden space-y-6">
-      <!-- Post Announcement Form -->
       <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
         <h3 class="text-lg font-bold text-gray-800 mb-2">Post Announcement</h3>
         <p class="text-xs text-gray-500 mb-4">Broadcast a message to all members</p>
@@ -240,7 +226,6 @@
         <div id="announcementStatus" class="mt-3 text-sm font-medium"></div>
       </div>
 
-      <!-- Existing Announcements List -->
       <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-lg font-bold text-gray-800">Existing Announcements</h3>
@@ -267,7 +252,7 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 6: TRANSACTIONS ==================== -->
+    <!-- ==================== TAB 6: PENDING TRANSACTIONS (NEW) ==================== -->
     <div id="section-transactions" class="hidden space-y-6">
       <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
         <div class="flex justify-between items-center mb-4">
@@ -339,64 +324,24 @@
 
       // ---------- Configuration ----------
       const API_BASE = 'https://kishan-incomes.onrender.com/api';
+      const token = localStorage.getItem('kishan_token');
+      let cachedUsers = [];
+      let activeInvestments = [];
 
-      // ---------- Token Management ----------
-      function getToken() {
-        return localStorage.getItem('kishan_token');
-      }
-
-      function isTokenValid() {
-        const token = getToken();
-        if (!token) return false;
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const expiry = payload.exp * 1000;
-          return Date.now() < expiry;
-        } catch (e) {
-          return false;
-        }
-      }
-
-      function redirectToLogin(message) {
-        if (message) alert(message);
-        localStorage.removeItem('kishan_token');
-        localStorage.removeItem('kishan_user');
+      // ---------- Auth Check ----------
+      if (!token) {
+        alert('Please log in first.');
         window.location.href = 'index.html';
-      }
-
-      // Check token on load
-      if (!getToken() || !isTokenValid()) {
-        redirectToLogin('Your session has expired. Please log in again.');
         return;
       }
-
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
       if (user.role !== 'admin') {
-        redirectToLogin('Access denied. Admin privileges required.');
+        alert('Access denied. Admin privileges required.');
+        window.location.href = 'index.html';
         return;
       }
 
       document.getElementById('adminDisplay').textContent = `👑 ${user.full_name}`;
-
-      // ---------- Helper for authenticated fetch ----------
-      async function fetchWithAuth(url, options = {}) {
-        const token = getToken();
-        if (!token || !isTokenValid()) {
-          redirectToLogin('Session expired. Please log in again.');
-          return; // Stop execution
-        }
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          ...options.headers
-        };
-        const response = await fetch(url, { ...options, headers });
-        if (response.status === 401 || response.status === 403) {
-          redirectToLogin('Your session has expired. Please log in again.');
-          return;
-        }
-        return response;
-      }
 
       // ---------- Tab Switching ----------
       window.switchTab = function(tabId) {
@@ -409,8 +354,6 @@
         const tabBtn = document.getElementById('tab-' + tabId);
         tabBtn.classList.remove('tab-inactive');
         tabBtn.classList.add('tab-active');
-
-        // Load data when switching tabs
         if (tabId === 'users') loadUsers();
         if (tabId === 'programs') loadPrograms();
         if (tabId === 'investments') loadActiveInvestments();
@@ -429,8 +372,10 @@
       // ---------- Stats ----------
       async function loadStats() {
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/stats`);
-          if (!res) return;
+          const res = await fetch(`${API_BASE}/admin/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch stats');
           const data = await res.json();
           if (data.success) {
             const s = data.data;
@@ -452,8 +397,10 @@
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading members...</td></tr>';
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/users`);
-          if (!res) return;
+          const res = await fetch(`${API_BASE}/admin/users`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch users');
           const data = await res.json();
           cachedUsers = data;
           renderUsers(cachedUsers);
@@ -461,8 +408,6 @@
           tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
         }
       }
-
-      let cachedUsers = [];
 
       function renderUsers(users) {
         const tbody = document.getElementById('usersTableBody');
@@ -510,13 +455,12 @@
         const newRole = currentRole === 'admin' ? 'member' : 'admin';
         if (!confirm(`Change user ID ${userId} role to ${newRole}?`)) return;
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/role`, {
+          const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
             method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: newRole })
           });
-          if (!res) return;
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Failed to update role');
+          if (!res.ok) throw new Error('Failed to update role');
           alert('Role updated!');
           loadUsers();
         } catch (err) {
@@ -552,8 +496,9 @@
         if (!confirm(`Confirm ${type} of UGX ${amount.toLocaleString()} for user ID ${currentUserId}?`)) return;
 
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/users/adjust-balance`, {
+          const res = await fetch(`${API_BASE}/admin/users/adjust-balance`, {
             method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               target_user_id: currentUserId,
               adjustment_type: type,
@@ -561,7 +506,6 @@
               reason: reason
             })
           });
-          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Adjustment failed');
           alert(data.message);
@@ -622,11 +566,11 @@
           description: document.getElementById('progDesc').value.trim() || null
         };
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/programs`, {
+          const res = await fetch(`${API_BASE}/admin/programs`, {
             method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Creation failed');
           alert('Program created successfully!');
@@ -641,22 +585,19 @@
         }
       };
 
-      // ✅ FIXED: Delete function with server error display
       window.deleteProgram = async function(id) {
         if (!confirm(`Delete program ID ${id}?`)) return;
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/programs/${id}`, {
-            method: 'DELETE'
+          const res = await fetch(`${API_BASE}/admin/programs/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-          if (!res) return;
           const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.message || data.error || 'Deletion failed');
-          }
-          alert(data.message || 'Program deleted successfully.');
+          if (!res.ok) throw new Error(data.message || 'Deletion failed');
+          alert(data.message);
           loadPrograms();
         } catch (err) {
-          alert('❌ Error: ' + err.message);
+          alert('Error: ' + err.message);
         }
       };
 
@@ -665,16 +606,18 @@
         const tbody = document.getElementById('activeInvestmentsBody');
         tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Loading active investments...</td></tr>';
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/investments/active`);
-          if (!res) return;
+          const res = await fetch(`${API_BASE}/admin/investments/active`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch active investments');
           const data = await res.json();
           if (!data.success) throw new Error(data.message || 'Unknown error');
-          const investments = data.data || [];
-          if (investments.length === 0) {
+          activeInvestments = data.data || [];
+          if (activeInvestments.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-400">No active investments.</td></tr>';
             return;
           }
-          tbody.innerHTML = investments.map(inv => `
+          tbody.innerHTML = activeInvestments.map(inv => `
             <tr class="hover:bg-gray-50">
               <td class="p-3">${inv.full_name} (${inv.phone_number})</td>
               <td class="p-3 font-semibold">${inv.program_title}</td>
@@ -699,10 +642,10 @@
       window.manualPayout = async function(investmentId) {
         if (!confirm(`Manually payout investment ID ${investmentId}? This will credit the user's wallet.`)) return;
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/investments/${investmentId}/payout`, {
-            method: 'POST'
+          const res = await fetch(`${API_BASE}/admin/investments/${investmentId}/payout`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Payout failed');
           alert(data.message);
@@ -713,13 +656,15 @@
         }
       };
 
-      // ---------- Announcements (Admin) ----------
+      // ---------- Announcements ----------
       async function loadAnnouncementsAdmin() {
         const tbody = document.getElementById('announcementsTableBody');
         tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Loading announcements...</td></tr>';
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/announcements`);
-          if (!res) return;
+          const res = await fetch(`${API_BASE}/admin/announcements`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch announcements');
           const data = await res.json();
           if (data.success && data.data && data.data.length > 0) {
             tbody.innerHTML = data.data.map(a => `
@@ -746,10 +691,10 @@
       window.deleteAnnouncement = async function(id) {
         if (!confirm(`Delete announcement ID ${id}?`)) return;
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/announcements/${id}`, {
-            method: 'DELETE'
+          const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Deletion failed');
           alert('Announcement deleted.');
@@ -767,11 +712,11 @@
         const title = document.getElementById('annTitle').value.trim();
         const message = document.getElementById('annMessage').value.trim();
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/announcements`, {
+          const res = await fetch(`${API_BASE}/admin/announcements`, {
             method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, message })
           });
-          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Failed to post');
           document.getElementById('announcementStatus').innerHTML = '<span class="text-green-600 font-bold">✅ Announcement posted successfully!</span>';
@@ -785,13 +730,17 @@
         }
       };
 
-      // ---------- Pending Transactions (NEW) ----------
+      // ============================================================
+      // ===== NEW: PENDING TRANSACTIONS =====
+      // ============================================================
       async function loadPendingTransactions() {
         const tbody = document.getElementById('transactionsTableBody');
         tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-500">Loading...</td></tr>';
         try {
-          const res = await fetchWithAuth(`${API_BASE}/admin/transactions/pending`);
-          if (!res) return;
+          const res = await fetch(`${API_BASE}/admin/transactions/pending`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch transactions');
           const data = await res.json();
           if (data.success && data.data.length > 0) {
             tbody.innerHTML = data.data.map(tx => {
@@ -827,43 +776,41 @@
         }
       }
 
-      // Approve transaction
-      async function approveTransaction(txId, type) {
+      window.approveTransaction = async function(txId, type) {
         if (!confirm(`Approve this ${type}?`)) return;
         try {
           const endpoint = type === 'deposit' ? 'deposit' : 'withdrawal';
-          const res = await fetchWithAuth(`${API_BASE}/admin/transactions/${endpoint}/${txId}/approve`, {
-            method: 'POST'
+          const res = await fetch(`${API_BASE}/admin/transactions/${endpoint}/${txId}/approve`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Approval failed');
           alert(data.message);
           loadPendingTransactions();
           loadStats();
         } catch (err) {
-          alert('❌ Error: ' + err.message);
+          alert('Error: ' + err.message);
         }
-      }
+      };
 
-      // Reject transaction
-      async function rejectTransaction(txId, type) {
+      window.rejectTransaction = async function(txId, type) {
         if (!confirm(`Reject this ${type}? This may refund the user (for withdrawals).`)) return;
         try {
           const endpoint = type === 'deposit' ? 'deposit' : 'withdrawal';
-          const res = await fetchWithAuth(`${API_BASE}/admin/transactions/${endpoint}/${txId}/reject`, {
-            method: 'POST'
+          const res = await fetch(`${API_BASE}/admin/transactions/${endpoint}/${txId}/reject`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Rejection failed');
           alert(data.message);
           loadPendingTransactions();
           loadStats();
         } catch (err) {
-          alert('❌ Error: ' + err.message);
+          alert('Error: ' + err.message);
         }
-      }
+      };
 
       // ---------- Initial Load ----------
       document.addEventListener('DOMContentLoaded', function() {
