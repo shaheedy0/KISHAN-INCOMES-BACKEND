@@ -56,6 +56,16 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Optional: redirect /wallet to wallet.html
+app.get('/wallet', (req, res) => {
+  res.redirect('/wallet.html');
+});
+
+// Optional: redirect /admin to admin.html
+app.get('/admin', (req, res) => {
+  res.redirect('/admin.html');
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`\n=================================`);

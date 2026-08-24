@@ -15,6 +15,18 @@
       <p class="text-xs text-emerald-200">Secure Community Growth</p>
     </div>
     <div id="nav-user" class="hidden flex items-center gap-4">
+      <nav class="flex items-center gap-3">
+        <a href="wallet.html" class="text-sm text-emerald-200 hover:text-white transition font-medium border-r border-emerald-600 pr-3">
+          💰 My Wallet
+        </a>
+        <a href="index.html" class="text-sm text-emerald-200 hover:text-white transition font-medium">
+          📊 Dashboard
+        </a>
+        <!-- Admin link (visible only for admins) -->
+        <a id="adminLink" href="admin.html" class="text-sm text-amber-300 hover:text-white transition font-medium hidden">
+          ⚙️ Admin
+        </a>
+      </nav>
       <span id="user-display" class="font-medium text-sm bg-emerald-900 px-3 py-1 rounded-full border border-emerald-700"></span>
       <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
     </div>
@@ -516,12 +528,17 @@
       document.getElementById('dashboard-section').classList.remove('hidden');
       document.getElementById('nav-user').classList.remove('hidden');
       document.getElementById('user-display').textContent = user.full_name;
+      
+      // Show admin link if user is admin
+      if (user.role === 'admin') {
+        document.getElementById('adminLink').classList.remove('hidden');
+      }
 
       loadPrograms();
       fetchBalance(); // ✅ Load balance on login
     }
 
-    // Logout Member
+    // Logout Member (overridden by global logout)
     function logout() {
       localStorage.removeItem('kishan_token');
       localStorage.removeItem('kishan_user');

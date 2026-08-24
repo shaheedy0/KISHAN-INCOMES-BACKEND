@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kishan Incomes - My Member Wallet</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Auth Check -->
+  <script src="auth-check.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800">
 
@@ -15,6 +17,14 @@
       <p class="text-xs text-emerald-300">Member Financial Portal</p>
     </div>
     <div class="flex items-center gap-3">
+      <nav class="flex items-center gap-3 mr-3">
+        <a href="index.html" class="text-sm text-emerald-200 hover:text-white transition font-medium border-r border-emerald-600 pr-3">
+          📊 Dashboard
+        </a>
+        <a href="wallet.html" class="text-sm text-emerald-200 hover:text-white transition font-medium">
+          💰 My Wallet
+        </a>
+      </nav>
       <div class="text-right hidden sm:block">
         <p id="member-name" class="font-semibold text-sm text-emerald-100">Member</p>
         <p id="member-phone" class="text-[11px] text-emerald-300"></p>
@@ -343,15 +353,15 @@
     let currentLiquidBalance = 0;
 
     // Verify authentication on page load
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Check auth before proceeding
+      const isAuthenticated = await checkAuth();
+      if (!isAuthenticated) {
+        return; // Redirect already handled
+      }
+
       const token = localStorage.getItem('kishan_token');
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
-
-      if (!token || !user.id) {
-        alert('Please log in to view your member wallet.');
-        window.location.href = 'index.html';
-        return;
-      }
 
       document.getElementById('member-name').textContent = user.full_name || 'Member';
       document.getElementById('member-phone').textContent = user.phone_number || '';
@@ -743,11 +753,7 @@
       });
     }
 
-    function logout() {
-      localStorage.removeItem('kishan_token');
-      localStorage.removeItem('kishan_user');
-      window.location.href = 'index.html';
-    }
+    // Logout is defined in auth-check.js
   </script>
 </body>
 </html>

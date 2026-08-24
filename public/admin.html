@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - KISHAN INCOME</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Admin Auth Check -->
+  <script src="admin-auth-check.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800 flex flex-col justify-between font-sans">
 
@@ -15,6 +17,12 @@
       <p class="text-xs text-gray-400">System Management & Administration</p>
     </div>
     <div class="flex items-center gap-4">
+      <a href="index.html" class="text-sm text-gray-300 hover:text-white transition font-medium border-r border-gray-600 pr-3">
+        📊 Dashboard
+      </a>
+      <a href="wallet.html" class="text-sm text-gray-300 hover:text-white transition font-medium border-r border-gray-600 pr-3">
+        💰 Wallet
+      </a>
       <span id="adminDisplay" class="font-medium text-sm bg-gray-800 px-3 py-1 rounded-full border border-gray-700">Admin</span>
       <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
     </div>
@@ -139,18 +147,22 @@
 
   <script>
     const API_BASE = '/api';
-    const token = localStorage.getItem('token') || localStorage.getItem('kishan_token');
+    const token = localStorage.getItem('kishan_token') || localStorage.getItem('token');
     let cachedUsers = [];
 
-    if (!token) {
-      window.location.replace('/index.html');
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('kishan_user') || '{}');
-      if (user.full_name) {
-        document.getElementById('adminDisplay').textContent = `${user.full_name} (Admin)`;
+    // Admin auth check runs on page load via admin-auth-check.js
+    // We'll also run our own initialization after auth check
+    window.addEventListener('DOMContentLoaded', async () => {
+      // The admin-auth-check.js will handle auth and call displayAdminInfo
+      // But we also need to initialize the page data
+      // Let's ensure the token is still available
+      if (!token) {
+        window.location.href = 'index.html';
+        return;
       }
+      
+      // Display admin info from admin-auth-check.js (it will set the display)
+      // But we also want to load data
       loadUsers();
       loadAdminPrograms();
     });
@@ -352,13 +364,7 @@
       }
     }
 
-    function logout() {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('kishan_token');
-      localStorage.removeItem('kishan_user');
-      window.location.replace('/index.html');
-    }
+    // Logout is defined in admin-auth-check.js
   </script>
 </body>
 </html>
