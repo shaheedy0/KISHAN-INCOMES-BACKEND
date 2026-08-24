@@ -1,12 +1,5 @@
 const db = require('../config/db');
 
-// Helper: calculate daily earnings
-function calculateDailyEarnings(totalInvested, roiPercentage, durationDays) {
-  const totalReturn = totalInvested * (1 + (roiPercentage / 100));
-  const dailyEarning = totalReturn / durationDays;
-  return { totalReturn, dailyEarning };
-}
-
 exports.getActivePrograms = async (req, res) => {
   try {
     const [programs] = await db.execute(
@@ -43,6 +36,7 @@ exports.purchaseShares = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
+    // 1. Lock and fetch the program
     const [programRows] = await connection.execute(
       `SELECT id, title, share_price, roi_percentage, duration_days, status
        FROM investment_programs 
@@ -57,11 +51,32 @@ exports.purchaseShares = async (req, res) => {
     }
 
     const program = programRows[0];
+
+    // 2. Check active shares limit for this user & program
+    const [activeShares] = await connection.execute(
+      `SELECT SUM(shares_purchased) AS total_shares
+       FROM user_investments
+       WHERE user_id = ? AND program_id = ? AND status = 'active'
+       FOR UPDATE`,
+      [userId, program_id]
+    );
+
+    const currentActiveShares = parseInt(activeShares[0].total_shares) || 0;
+    const MAX_SHARES_PER_PROGRAM = 3;
+
+    if (currentActiveShares + sharesToBuy > MAX_SHARES_PER_PROGRAM) {
+      await connection.rollback();
+      return res.status(400).json({
+        message: `You already have ${currentActiveShares} active share(s) in this program. Maximum allowed is ${MAX_SHARES_PER_PROGRAM} shares at a time. You can buy only ${MAX_SHARES_PER_PROGRAM - currentActiveShares} more.`
+      });
+    }
+
+    // 3. Calculate cost and expected payout
     const totalCost = parseFloat(program.share_price) * sharesToBuy;
     const roiMultiplier = 1 + (parseFloat(program.roi_percentage) / 100);
     const expectedPayout = totalCost * roiMultiplier;
 
-    // Lock wallet row
+    // 4. Lock and check wallet balance
     const [walletRows] = await connection.execute(
       `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [userId]
@@ -81,22 +96,17 @@ exports.purchaseShares = async (req, res) => {
       });
     }
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
-
-    // Deduct from wallets
+    // 5. Deduct from wallet
     await connection.execute(
       `UPDATE wallets SET balance = balance - ? WHERE user_id = ?`,
       [totalCost, userId]
     );
 
-    // Calculate daily earnings
-    const { totalReturn, dailyEarning } = calculateDailyEarnings(
-      totalCost,
-      parseFloat(program.roi_percentage),
-      parseInt(program.duration_days)
-    );
+    // 6. Create investment record
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
+    const startDate = new Date();
+    const dailyEarning = expectedPayout / program.duration_days;
 
     await connection.execute(
       `INSERT INTO user_investments (
@@ -106,6 +116,7 @@ exports.purchaseShares = async (req, res) => {
       [userId, program.id, sharesToBuy, totalCost, expectedPayout, dailyEarning, startDate, endDate]
     );
 
+    // 7. Record transaction
     const ref = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
@@ -135,8 +146,6 @@ exports.purchaseShares = async (req, res) => {
 exports.getMyInvestments = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    // Fetch with all required fields
     const [rows] = await db.execute(
       `SELECT 
         ui.id, 
@@ -158,22 +167,20 @@ exports.getMyInvestments = async (req, res) => {
       [userId]
     );
 
-    // Calculate current earnings for active investments
     const investments = rows.map(inv => {
       if (inv.status === 'active') {
         const daysElapsed = Math.max(0, inv.days_elapsed || 0);
         const daysRemaining = Math.max(0, inv.days_remaining || 0);
-        const currentEarnings = (inv.daily_earning || 0) * daysElapsed;
+        const currentEarnings = inv.daily_earning * daysElapsed;
         const totalPayout = inv.total_invested + currentEarnings;
-        
         return {
           ...inv,
           days_elapsed: daysElapsed,
           days_remaining: daysRemaining,
           current_earnings: currentEarnings,
           total_payout: totalPayout,
-          progress_percentage: (daysElapsed + daysRemaining) > 0 ? 
-            Math.round((daysElapsed / (daysElapsed + daysRemaining)) * 100) : 0
+          progress_percentage: inv.days_remaining > 0 ? 
+            Math.round((daysElapsed / (daysElapsed + daysRemaining)) * 100) : 100
         };
       }
       return inv;
@@ -186,15 +193,13 @@ exports.getMyInvestments = async (req, res) => {
   }
 };
 
-// ✅ Mature investments (called by cron or manually)
+// Optional: mature investments (cron job) – unchanged
 exports.matureInvestments = async (req, res) => {
   let connection;
-  
   try {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // Find investments that have reached maturity date
     const [matured] = await connection.execute(
       `SELECT id, user_id, total_invested, expected_payout, daily_earning, end_date
        FROM user_investments 
@@ -203,36 +208,27 @@ exports.matureInvestments = async (req, res) => {
 
     if (matured.length === 0) {
       await connection.commit();
-      if (res) return res.status(200).json({ 
-        success: true, 
-        message: 'No investments to mature',
-        matured_count: 0 
-      });
-      return;
+      return res.status(200).json({ success: true, message: 'No investments to mature', matured_count: 0 });
     }
 
     let totalMatured = 0;
     let totalPayout = 0;
 
     for (const inv of matured) {
-      // Calculate actual earnings based on exact days
       const daysElapsed = Math.ceil((new Date() - new Date(inv.end_date)) / (1000 * 60 * 60 * 24));
-      const actualEarnings = (inv.daily_earning || 0) * daysElapsed;
+      const actualEarnings = inv.daily_earning * (parseFloat(inv.total_invested) > 0 ? daysElapsed : 0);
       const payoutAmount = parseFloat(inv.total_invested) + actualEarnings;
 
-      // Credit user's wallet
       await connection.execute(
         `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
         [payoutAmount, inv.user_id]
       );
 
-      // Update investment status
       await connection.execute(
         `UPDATE user_investments SET status = 'matured', matured_at = NOW() WHERE id = ?`,
         [inv.id]
       );
 
-      // Record payout transaction
       const ref = `MAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       await connection.execute(
         `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
@@ -247,18 +243,17 @@ exports.matureInvestments = async (req, res) => {
 
     await connection.commit();
 
-    if (res) {
-      return res.status(200).json({
-        success: true,
-        message: `Matured ${totalMatured} investments, total payout UGX ${totalPayout.toLocaleString()}`,
-        matured_count: totalMatured,
-        total_payout: totalPayout
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: `Matured ${totalMatured} investments, total payout UGX ${totalPayout.toLocaleString()}`,
+      matured_count: totalMatured,
+      total_payout: totalPayout
+    });
+
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('Mature Investments Error:', error);
-    if (res) return res.status(500).json({ message: 'Error maturing investments.' });
+    return res.status(500).json({ message: 'Error maturing investments.' });
   } finally {
     if (connection) connection.release();
   }
