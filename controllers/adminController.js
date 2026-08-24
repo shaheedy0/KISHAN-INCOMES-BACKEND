@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { executeB2CPayoutAPI } = require('./withdrawalController'); // ✅ Import B2C helper
 
 // ---------- Existing functions ----------
 exports.getAllActiveInvestments = async (req, res) => {
@@ -201,7 +202,6 @@ exports.postAnnouncement = async (req, res) => {
   }
 };
 
-// ✅ Delete announcement
 exports.deleteAnnouncement = async (req, res) => {
   const { id } = req.params;
   try {
@@ -216,7 +216,6 @@ exports.deleteAnnouncement = async (req, res) => {
   }
 };
 
-// ✅ Get all announcements (admin version)
 exports.getAnnouncements = async (req, res) => {
   try {
     const [rows] = await db.execute('SELECT * FROM announcements ORDER BY created_at DESC');
@@ -227,7 +226,6 @@ exports.getAnnouncements = async (req, res) => {
   }
 };
 
-// ✅ Get platform stats
 exports.getStats = async (req, res) => {
   try {
     const [userCount] = await db.execute('SELECT COUNT(*) AS total FROM users');
@@ -349,16 +347,36 @@ exports.approveWithdrawal = async (req, res) => {
 
     const tx = txRows[0];
 
-    // Update transaction status to completed
+    // ✅ Call B2C payout API (mock)
+    const payoutResult = await executeB2CPayoutAPI({
+      reference: tx.reference,
+      phone: tx.phone_number,
+      amount: tx.amount,
+      network: tx.network
+    });
+
+    if (payoutResult.status !== 'completed') {
+      // If payout fails, refund the user
+      await connection.execute(
+        `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
+        [tx.amount, tx.user_id]
+      );
+      await connection.execute(
+        `UPDATE transactions SET status = 'failed', external_ref = ? WHERE id = ?`,
+        ['Payout API failed', id]
+      );
+      await connection.commit();
+      return res.status(502).json({ success: false, message: 'Payout failed. User has been refunded.' });
+    }
+
+    // Mark transaction as completed
     await connection.execute(
       `UPDATE transactions SET status = 'completed', external_ref = ? WHERE id = ?`,
-      [`Admin approved ${new Date().toISOString()}`, id]
+      [payoutResult.externalRef, id]
     );
 
-    // (Optional) trigger B2C payout here if integrated.
-
     await connection.commit();
-    res.json({ success: true, message: 'Withdrawal approved.' });
+    res.json({ success: true, message: 'Withdrawal approved and payout initiated.' });
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('Approve withdrawal error:', error);
