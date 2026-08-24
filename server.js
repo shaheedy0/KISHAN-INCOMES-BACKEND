@@ -109,7 +109,7 @@ app.get('/admin', (req, res) => {
 });
 
 // ===== START CRON JOB =====
-const initPayoutCron = require('./cron/payoutCron');
+const initPayoutCron = require('./jobs/payoutCron'); // ✅ Correct path
 initPayoutCron();
 
 const PORT = process.env.PORT || 5000;
