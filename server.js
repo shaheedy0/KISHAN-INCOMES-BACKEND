@@ -42,7 +42,7 @@ app.use(
 // Rate limiter
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 800,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
 });
