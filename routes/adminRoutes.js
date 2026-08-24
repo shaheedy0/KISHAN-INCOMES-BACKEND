@@ -6,10 +6,9 @@ const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
 router.use(verifyToken, verifyAdmin);
 
-// ----- Existing routes -----
+// ----- Users -----
 router.get('/users', async (req, res) => {
   try {
-    // Return users with their wallet balance (join wallets)
     const [users] = await db.execute(`
       SELECT u.*, w.balance, w.bonus_balance 
       FROM users u 
@@ -40,6 +39,7 @@ router.patch('/users/:id/role', async (req, res) => {
   }
 });
 
+// ----- Programs -----
 router.post('/programs', async (req, res) => {
   const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
 
@@ -48,10 +48,11 @@ router.post('/programs', async (req, res) => {
   }
 
   try {
+    // ✅ Removed is_active – only status
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, share_price, roi_percentage, duration_days, image_url, description, status, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, 'active', 1)`,
+       (title, share_price, roi_percentage, duration_days, image_url, description, status) 
+       VALUES (?, ?, ?, ?, ?, ?, 'active')`,
       [
         title, 
         parseFloat(share_price),
@@ -79,12 +80,17 @@ router.delete('/programs/:id', async (req, res) => {
   }
 });
 
+// ----- Investments -----
 router.get('/investments/active', adminController.getAllActiveInvestments);
 router.post('/investments/:id/payout', adminController.forceMaturityPayout);
+
+// ----- Balance adjustment -----
 router.post('/users/adjust-balance', adminController.adjustUserBalance);
+
+// ----- Announcements -----
 router.post('/announcements', adminController.postAnnouncement);
 
-// ----- NEW: Stats endpoint -----
+// ----- Stats -----
 router.get('/stats', adminController.getStats);
 
 module.exports = router;

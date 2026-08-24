@@ -12,10 +12,11 @@ exports.createProgram = async (req, res) => {
   const imageUrl = req.file ? `/uploads/programs/${req.file.filename}` : (image_url || null);
 
   try {
+    // ✅ Removed is_active – only status
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, description, image_url, share_price, roi_percentage, duration_days, status, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, 'active', TRUE)`,
+       (title, description, image_url, share_price, roi_percentage, duration_days, status) 
+       VALUES (?, ?, ?, ?, ?, ?, 'active')`,
       [title, description || '', imageUrl, parseFloat(share_price), parseFloat(roi_percentage), parseInt(duration_days)]
     );
 
@@ -33,7 +34,7 @@ exports.createProgram = async (req, res) => {
 
 exports.updateProgram = async (req, res) => {
   const { id } = req.params;
-  const { title, description, share_price, roi_percentage, duration_days, is_active, image_url } = req.body;
+  const { title, description, share_price, roi_percentage, duration_days, status, image_url } = req.body;
 
   try {
     const [existing] = await db.execute('SELECT * FROM investment_programs WHERE id = ?', [id]);
@@ -56,10 +57,11 @@ exports.updateProgram = async (req, res) => {
       imageUrlToSave = image_url;
     }
 
+    // ✅ Removed is_active, added status if provided
     await db.execute(
       `UPDATE investment_programs 
        SET title = ?, description = ?, image_url = ?, share_price = ?, 
-           roi_percentage = ?, duration_days = ?, is_active = ? 
+           roi_percentage = ?, duration_days = ?, status = ? 
        WHERE id = ?`,
       [
         title || currentProgram.title,
@@ -68,7 +70,7 @@ exports.updateProgram = async (req, res) => {
         share_price !== undefined ? share_price : currentProgram.share_price,
         roi_percentage || currentProgram.roi_percentage,
         duration_days || currentProgram.duration_days,
-        is_active !== undefined ? is_active : currentProgram.is_active,
+        status || currentProgram.status,  // default to existing status
         id
       ]
     );
@@ -87,7 +89,7 @@ exports.getAllPrograms = async (req, res) => {
       `SELECT id, title, description, share_price, 
               roi_percentage, duration_days, image_url 
        FROM investment_programs 
-       WHERE is_active = TRUE OR status = 'active' 
+       WHERE status = 'active'
        ORDER BY id DESC`
     );
     res.json(programs);
