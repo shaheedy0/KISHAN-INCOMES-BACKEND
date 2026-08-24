@@ -7,7 +7,7 @@ exports.getActivePrograms = async (req, res) => {
               COALESCE(share_price) AS share_price, 
               roi_percentage, duration_days, image_url 
        FROM investment_programs 
-       WHERE status = 'active' OR is_active = 1 OR is_active = TRUE 
+       WHERE status = 'active'
        ORDER BY id DESC`
     );
     return res.status(200).json(programs);
@@ -36,16 +36,19 @@ exports.purchaseShares = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
+    // ✅ Check only `status` – no `is_active`
     const [programRows] = await connection.execute(
       `SELECT id, title, COALESCE(share_price) AS share_price, 
-              roi_percentage, duration_days, status, is_active 
-       FROM investment_programs WHERE id = ? FOR UPDATE`,
+              roi_percentage, duration_days, status
+       FROM investment_programs 
+       WHERE id = ? AND status = 'active'
+       FOR UPDATE`,
       [program_id]
     );
 
     if (programRows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: 'Investment program unavailable.' });
+      return res.status(404).json({ message: 'Investment program unavailable or not active.' });
     }
 
     const program = programRows[0];
@@ -53,7 +56,7 @@ exports.purchaseShares = async (req, res) => {
     const roiMultiplier = 1 + (parseFloat(program.roi_percentage) / 100);
     const expectedPayout = totalCost * roiMultiplier;
 
-    // ✅ Lock wallet row instead of users table
+    // ✅ Lock wallet row
     const [walletRows] = await connection.execute(
       `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [userId]
@@ -76,7 +79,7 @@ exports.purchaseShares = async (req, res) => {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
 
-    // ✅ Deduct from wallets
+    // Deduct from wallets
     await connection.execute(
       `UPDATE wallets SET balance = balance - ? WHERE user_id = ?`,
       [totalCost, userId]
