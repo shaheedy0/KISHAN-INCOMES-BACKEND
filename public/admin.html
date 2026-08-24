@@ -59,7 +59,7 @@
           <p id="statTotalBalance" class="text-2xl font-extrabold text-amber-800 mt-1">UGX 0</p>
         </div>
       </div>
-      <!-- Additional stats (optional) -->
+      <!-- Additional stats -->
       <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
         <h4 class="text-sm font-bold text-gray-700 mb-2">System Overview</h4>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -205,8 +205,9 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 5: ANNOUNCEMENTS ==================== -->
+    <!-- ==================== TAB 5: ANNOUNCEMENTS (UPDATED) ==================== -->
     <div id="section-announcements" class="hidden space-y-6">
+      <!-- Post Announcement Form -->
       <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
         <h3 class="text-lg font-bold text-gray-800 mb-2">Post Announcement</h3>
         <p class="text-xs text-gray-500 mb-4">Broadcast a message to all members</p>
@@ -225,11 +226,35 @@
         </form>
         <div id="announcementStatus" class="mt-3 text-sm font-medium"></div>
       </div>
+
+      <!-- Existing Announcements List -->
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-800">Existing Announcements</h3>
+          <button onclick="loadAnnouncementsAdmin()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold px-4 py-2 rounded-lg transition">
+            🔄 Refresh
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
+                <th class="p-3">ID</th>
+                <th class="p-3">Title</th>
+                <th class="p-3">Message</th>
+                <th class="p-3">Date</th>
+                <th class="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="announcementsTableBody" class="text-sm divide-y">
+              <tr><td colspan="5" class="p-4 text-center text-gray-500">Loading announcements...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
   </main>
-
-  <!-- ========== MODALS ========== -->
 
   <!-- Balance Adjustment Modal -->
   <div id="balanceModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
@@ -284,27 +309,26 @@
         return;
       }
 
-      // Display admin name
       document.getElementById('adminDisplay').textContent = `👑 ${user.full_name}`;
 
       // ---------- Tab Switching ----------
       window.switchTab = function(tabId) {
-        // Hide all sections
         document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('[id^="tab-"]').forEach(el => {
           el.classList.remove('tab-active', 'tab-inactive');
           el.classList.add('tab-inactive');
         });
-        // Show selected
         document.getElementById('section-' + tabId).classList.remove('hidden');
         const tabBtn = document.getElementById('tab-' + tabId);
         tabBtn.classList.remove('tab-inactive');
         tabBtn.classList.add('tab-active');
-        // Refresh data on tab switch
         if (tabId === 'users') loadUsers();
         if (tabId === 'programs') loadPrograms();
         if (tabId === 'investments') loadActiveInvestments();
         if (tabId === 'overview') loadStats();
+        if (tabId === 'announcements') {
+          loadAnnouncementsAdmin();
+        }
       };
 
       // ---------- Logout ----------
@@ -396,7 +420,6 @@
         renderUsers(filtered);
       };
 
-      // Toggle role
       window.toggleUserRole = async function(userId, currentRole) {
         const newRole = currentRole === 'admin' ? 'member' : 'admin';
         if (!confirm(`Change user ID ${userId} role to ${newRole}?`)) return;
@@ -601,7 +624,54 @@
         }
       };
 
-      // ---------- Announcements ----------
+      // ---------- Announcements (Admin) ----------
+      async function loadAnnouncementsAdmin() {
+        const tbody = document.getElementById('announcementsTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Loading announcements...</td></tr>';
+        try {
+          const res = await fetch(`${API_BASE}/admin/announcements`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch announcements');
+          const data = await res.json();
+          if (data.success && data.data && data.data.length > 0) {
+            tbody.innerHTML = data.data.map(a => `
+              <tr class="hover:bg-gray-50">
+                <td class="p-3">${a.id}</td>
+                <td class="p-3 font-semibold">${a.title}</td>
+                <td class="p-3 max-w-xs truncate">${a.message}</td>
+                <td class="p-3 text-xs text-gray-500">${new Date(a.created_at).toLocaleString()}</td>
+                <td class="p-3">
+                  <button onclick="deleteAnnouncement(${a.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded font-semibold transition">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No announcements posted yet.</td></tr>';
+          }
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
+        }
+      }
+
+      window.deleteAnnouncement = async function(id) {
+        if (!confirm(`Delete announcement ID ${id}?`)) return;
+        try {
+          const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Deletion failed');
+          alert('Announcement deleted.');
+          loadAnnouncementsAdmin();
+        } catch (err) {
+          alert(err.message);
+        }
+      };
+
       window.handleAnnouncement = async function(e) {
         e.preventDefault();
         const btn = document.getElementById('postAnnBtn');
@@ -619,6 +689,7 @@
           if (!res.ok) throw new Error(data.message || 'Failed to post');
           document.getElementById('announcementStatus').innerHTML = '<span class="text-green-600 font-bold">✅ Announcement posted successfully!</span>';
           document.getElementById('announcementForm').reset();
+          loadAnnouncementsAdmin(); // Refresh the list
         } catch (err) {
           document.getElementById('announcementStatus').innerHTML = `<span class="text-red-600 font-bold">❌ ${err.message}</span>`;
         } finally {
@@ -629,7 +700,6 @@
 
       // ---------- Initial Load ----------
       document.addEventListener('DOMContentLoaded', function() {
-        // Load Overview tab by default
         switchTab('overview');
       });
 

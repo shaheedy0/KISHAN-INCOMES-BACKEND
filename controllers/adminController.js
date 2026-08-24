@@ -1,7 +1,6 @@
 const db = require('../config/db');
 
-// ---------- Existing functions (kept as they are) ----------
-
+// ---------- Existing functions ----------
 exports.getAllActiveInvestments = async (req, res) => {
   try {
     const [investments] = await db.execute(
@@ -24,7 +23,6 @@ exports.getAllActiveInvestments = async (req, res) => {
        WHERE ui.status = 'active'
        ORDER BY ui.end_date ASC`
     );
-
     return res.status(200).json({
       success: true,
       count: investments.length,
@@ -188,17 +186,14 @@ exports.adjustUserBalance = async (req, res) => {
 
 exports.postAnnouncement = async (req, res) => {
   const { title, message } = req.body;
-
   if (!title || !message) {
     return res.status(400).json({ message: 'Title and message are required.' });
   }
-
   try {
     await db.execute(
       'INSERT INTO announcements (title, message) VALUES (?, ?)',
       [title, message]
     );
-
     res.status(201).json({ message: 'Announcement posted successfully.' });
   } catch (error) {
     console.error(error);
@@ -206,18 +201,39 @@ exports.postAnnouncement = async (req, res) => {
   }
 };
 
-// ---------- NEW: Get platform statistics ----------
+// ✅ NEW: Delete announcement
+exports.deleteAnnouncement = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await db.execute('DELETE FROM announcements WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Announcement not found.' });
+    }
+    res.json({ success: true, message: 'Announcement deleted successfully.' });
+  } catch (error) {
+    console.error('Delete announcement error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete announcement.' });
+  }
+};
+
+// ✅ NEW: Get all announcements (admin version)
+exports.getAnnouncements = async (req, res) => {
+  try {
+    const [rows] = await db.execute('SELECT * FROM announcements ORDER BY created_at DESC');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Get announcements error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch announcements.' });
+  }
+};
+
+// ✅ NEW: Get platform stats
 exports.getStats = async (req, res) => {
   try {
-    // Total users
     const [userCount] = await db.execute('SELECT COUNT(*) AS total FROM users');
-    // Total active programs
     const [programCount] = await db.execute('SELECT COUNT(*) AS total FROM investment_programs WHERE status = "active"');
-    // Total active investments
     const [activeInvestments] = await db.execute('SELECT COUNT(*) AS total FROM user_investments WHERE status = "active"');
-    // Total wallet balance (sum of all wallets)
     const [walletSum] = await db.execute('SELECT SUM(balance) AS total_balance FROM wallets');
-    // Total bonus balance
     const [bonusSum] = await db.execute('SELECT SUM(bonus_balance) AS total_bonus FROM wallets');
 
     const totalBalance = parseFloat(walletSum[0].total_balance) || 0;
@@ -231,7 +247,7 @@ exports.getStats = async (req, res) => {
         totalActiveInvestments: activeInvestments[0].total,
         totalWalletBalance: totalBalance,
         totalBonusBalance: totalBonus,
-        platformBalance: totalBalance + totalBonus  // combined
+        platformBalance: totalBalance + totalBonus
       }
     });
   } catch (error) {

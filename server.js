@@ -9,7 +9,7 @@ const app = express();
 
 // ===== SECURITY MIDDLEWARE =====
 
-// ✅ Customize Helmet to allow Tailwind and inline scripts
+// Custom Helmet CSP to allow Tailwind and inline scripts
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -18,7 +18,7 @@ app.use(
         scriptSrc: [
           "'self'",
           "https://cdn.tailwindcss.com",
-          "'unsafe-inline'", // needed for our inline scripts
+          "'unsafe-inline'", // needed for inline scripts
         ],
         styleSrc: [
           "'self'",
@@ -27,15 +27,13 @@ app.use(
         ],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'", "https://kishan-incomes.onrender.com"],
-        // Add other necessary sources if needed
       },
     },
-    // Disable the 'upgradeInsecureRequests' to avoid issues with mixed content
     upgradeInsecureRequests: false,
   })
 );
 
-// Global rate limiter
+// Global rate limiter: 100 requests per 15 minutes per IP
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -44,7 +42,7 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// CORS – allow only your frontend
+// CORS – allow only your frontend domain
 const corsOptions = {
   origin: 'https://kishan-incomes.onrender.com',
   optionsSuccessStatus: 200,

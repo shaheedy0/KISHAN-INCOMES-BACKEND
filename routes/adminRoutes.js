@@ -4,9 +4,13 @@ const db = require('../config/db');
 const adminController = require('../controllers/adminController');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
+// ---------- Routes that require only token (no admin) ----------
+router.get('/announcements', verifyToken, adminController.getAnnouncements);
+
+// ---------- All routes below require admin privileges ----------
 router.use(verifyToken, verifyAdmin);
 
-// ----- Users -----
+// Users
 router.get('/users', async (req, res) => {
   try {
     const [users] = await db.execute(`
@@ -25,11 +29,9 @@ router.get('/users', async (req, res) => {
 router.patch('/users/:id/role', async (req, res) => {
   const { role } = req.body;
   const userId = req.params.id;
-
   if (!['admin', 'member'].includes(role)) {
     return res.status(400).json({ message: 'Invalid role specified' });
   }
-
   try {
     await db.execute('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
     res.json({ success: true, message: 'User role updated successfully' });
@@ -39,16 +41,13 @@ router.patch('/users/:id/role', async (req, res) => {
   }
 });
 
-// ----- Programs -----
+// Programs
 router.post('/programs', async (req, res) => {
   const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
-
   if (!title || share_price === undefined || roi_percentage === undefined || !duration_days) {
     return res.status(400).json({ message: 'Missing required program fields' });
   }
-
   try {
-    // ✅ Removed is_active – only status
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
        (title, share_price, roi_percentage, duration_days, image_url, description, status) 
@@ -62,7 +61,6 @@ router.post('/programs', async (req, res) => {
         description || null
       ]
     );
-
     res.status(201).json({ success: true, message: 'Program created successfully', programId: result.insertId });
   } catch (error) {
     console.error('Admin Program Creation Error:', error);
@@ -71,26 +69,54 @@ router.post('/programs', async (req, res) => {
 });
 
 router.delete('/programs/:id', async (req, res) => {
+  const programId = req.params.id;
+  let connection;
   try {
-    await db.execute('DELETE FROM investment_programs WHERE id = ?', [req.params.id]);
-    res.json({ success: true, message: 'Program deleted successfully' });
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [investments] = await connection.execute(
+      'SELECT COUNT(*) AS count FROM user_investments WHERE program_id = ? AND status = "active"',
+      [programId]
+    );
+
+    if (investments[0].count > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete program because ${investments[0].count} active investment(s) still exist. Mature them first or reassign.`
+      });
+    }
+
+    await connection.execute(
+      'UPDATE investment_programs SET status = "inactive" WHERE id = ?',
+      [programId]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Program deleted successfully (marked as inactive).' });
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('Admin Program Deletion Error:', error);
-    res.status(500).json({ message: 'Failed to delete program' });
+    res.status(500).json({ success: false, message: 'Failed to delete program: ' + error.message });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
-// ----- Investments -----
+// Investments
 router.get('/investments/active', adminController.getAllActiveInvestments);
 router.post('/investments/:id/payout', adminController.forceMaturityPayout);
 
-// ----- Balance adjustment -----
+// Balance adjustment
 router.post('/users/adjust-balance', adminController.adjustUserBalance);
 
-// ----- Announcements -----
+// Announcements (admin management)
 router.post('/announcements', adminController.postAnnouncement);
+router.get('/admin/announcements', adminController.getAnnouncements); // Admin version (though same as public)
+router.delete('/announcements/:id', adminController.deleteAnnouncement);
 
-// ----- Stats -----
+// Stats
 router.get('/stats', adminController.getStats);
 
 module.exports = router;
