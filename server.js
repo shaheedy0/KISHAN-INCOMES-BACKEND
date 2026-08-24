@@ -8,8 +8,6 @@ require('dotenv').config();
 const app = express();
 
 // ===== SECURITY MIDDLEWARE =====
-
-// Relax CSP to allow inline scripts, event handlers, and Tailwind
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -23,7 +21,7 @@ app.use(
           "http:",
           "https://cdn.tailwindcss.com",
         ],
-        scriptSrcAttr: ["'unsafe-inline'"], // allows onclick, onsubmit, etc.
+        scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: [
           "'self'",
           "'unsafe-inline'",
@@ -41,7 +39,7 @@ app.use(
   })
 );
 
-// Global rate limiter
+// Rate limiter
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -50,7 +48,7 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// CORS – allow only your frontend
+// CORS
 const corsOptions = {
   origin: 'https://kishan-incomes.onrender.com',
   optionsSuccessStatus: 200,
@@ -109,6 +107,10 @@ app.get('/wallet', (req, res) => {
 app.get('/admin', (req, res) => {
   res.redirect('/admin.html');
 });
+
+// ===== START CRON JOB =====
+const initPayoutCron = require('./cron/payoutCron');
+initPayoutCron();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

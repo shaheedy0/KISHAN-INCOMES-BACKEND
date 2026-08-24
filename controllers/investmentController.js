@@ -52,7 +52,7 @@ exports.purchaseShares = async (req, res) => {
 
     const program = programRows[0];
 
-    // 2. Check active shares limit for this user & program
+    // 2. Check active shares limit (max 3)
     const [activeShares] = await connection.execute(
       `SELECT SUM(shares_purchased) AS total_shares
        FROM user_investments
@@ -102,18 +102,18 @@ exports.purchaseShares = async (req, res) => {
       [totalCost, userId]
     );
 
-    // 6. Create investment record
+    // 6. Create investment record with last_credited_date = start_date
+    const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
-    const startDate = new Date();
     const dailyEarning = expectedPayout / program.duration_days;
 
     await connection.execute(
       `INSERT INTO user_investments (
         user_id, program_id, shares_purchased, total_invested, 
-        expected_payout, daily_earning, start_date, end_date, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-      [userId, program.id, sharesToBuy, totalCost, expectedPayout, dailyEarning, startDate, endDate]
+        expected_payout, daily_earning, start_date, end_date, status, last_credited_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+      [userId, program.id, sharesToBuy, totalCost, expectedPayout, dailyEarning, startDate, endDate, startDate]
     );
 
     // 7. Record transaction
@@ -193,7 +193,7 @@ exports.getMyInvestments = async (req, res) => {
   }
 };
 
-// Optional: mature investments (cron job) – unchanged
+// Mature investments (called by cron or manually)
 exports.matureInvestments = async (req, res) => {
   let connection;
   try {
@@ -215,9 +215,10 @@ exports.matureInvestments = async (req, res) => {
     let totalPayout = 0;
 
     for (const inv of matured) {
-      const daysElapsed = Math.ceil((new Date() - new Date(inv.end_date)) / (1000 * 60 * 60 * 24));
-      const actualEarnings = inv.daily_earning * (parseFloat(inv.total_invested) > 0 ? daysElapsed : 0);
-      const payoutAmount = parseFloat(inv.total_invested) + actualEarnings;
+      // At maturity, credit the principal (total_invested) because daily earnings have been credited daily.
+      // But to be safe, we can credit the remaining balance to reach expected_payout.
+      // We'll credit the principal amount, as earnings have been paid daily.
+      const payoutAmount = parseFloat(inv.total_invested);
 
       await connection.execute(
         `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
@@ -229,7 +230,7 @@ exports.matureInvestments = async (req, res) => {
         [inv.id]
       );
 
-      const ref = `MAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const ref = `MAT-${inv.id}-${Date.now()}`;
       await connection.execute(
         `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
          VALUES (?, ?, 'SYSTEM', 'INTERNAL', ?, 'maturity_payout', 'completed')`,
@@ -238,14 +239,14 @@ exports.matureInvestments = async (req, res) => {
 
       totalMatured++;
       totalPayout += payoutAmount;
-      console.log(`[Maturity] User ${inv.user_id} received UGX ${payoutAmount} from matured investment ${inv.id}`);
+      console.log(`[Maturity] User ${inv.user_id} received UGX ${payoutAmount} principal from matured investment ${inv.id}`);
     }
 
     await connection.commit();
 
     return res.status(200).json({
       success: true,
-      message: `Matured ${totalMatured} investments, total payout UGX ${totalPayout.toLocaleString()}`,
+      message: `Matured ${totalMatured} investments, total principal payout UGX ${totalPayout.toLocaleString()}`,
       matured_count: totalMatured,
       total_payout: totalPayout
     });
