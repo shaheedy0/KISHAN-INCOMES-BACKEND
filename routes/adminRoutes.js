@@ -68,7 +68,6 @@ router.post('/programs', async (req, res) => {
   }
 });
 
-// ✅ FIXED: Hard-delete program (no status update)
 router.delete('/programs/:id', async (req, res) => {
   const programId = req.params.id;
   let connection;
@@ -76,7 +75,6 @@ router.delete('/programs/:id', async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // Check if any active investments reference this program
     const [investments] = await connection.execute(
       'SELECT COUNT(*) AS count FROM user_investments WHERE program_id = ? AND status = "active"',
       [programId]
@@ -90,7 +88,6 @@ router.delete('/programs/:id', async (req, res) => {
       });
     }
 
-    // Hard delete the program
     await connection.execute(
       'DELETE FROM investment_programs WHERE id = ?',
       [programId]
@@ -121,5 +118,12 @@ router.delete('/announcements/:id', adminController.deleteAnnouncement);
 
 // Stats
 router.get('/stats', adminController.getStats);
+
+// ---------- Admin transaction management ----------
+router.get('/transactions/pending', adminController.getPendingTransactions);
+router.post('/transactions/deposit/:id/approve', adminController.approveDeposit);
+router.post('/transactions/deposit/:id/reject', adminController.rejectDeposit);
+router.post('/transactions/withdrawal/:id/approve', adminController.approveWithdrawal);
+router.post('/transactions/withdrawal/:id/reject', adminController.rejectWithdrawal);
 
 module.exports = router;

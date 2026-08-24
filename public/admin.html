@@ -48,6 +48,7 @@
       <button onclick="switchTab('programs')" id="tab-programs" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📈 Programs</button>
       <button onclick="switchTab('investments')" id="tab-investments" class="tab-inactive px-4 py-2 text-sm font-semibold transition">💼 Active Investments</button>
       <button onclick="switchTab('announcements')" id="tab-announcements" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📢 Announcements</button>
+      <button onclick="switchTab('transactions')" id="tab-transactions" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📋 Pending Transactions</button>
     </div>
 
     <!-- ==================== TAB 1: OVERVIEW ==================== -->
@@ -266,6 +267,40 @@
       </div>
     </div>
 
+    <!-- ==================== TAB 6: TRANSACTIONS ==================== -->
+    <div id="section-transactions" class="hidden space-y-6">
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-gray-800">Pending Transactions</h3>
+            <p class="text-xs text-gray-500">Approve or reject user deposit and withdrawal requests</p>
+          </div>
+          <button onclick="loadPendingTransactions()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition">
+            🔄 Refresh
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
+                <th class="p-3">ID</th>
+                <th class="p-3">User</th>
+                <th class="p-3">Type</th>
+                <th class="p-3">Amount</th>
+                <th class="p-3">Phone</th>
+                <th class="p-3">Reference</th>
+                <th class="p-3">Date</th>
+                <th class="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="transactionsTableBody" class="text-sm divide-y">
+              <tr><td colspan="8" class="p-4 text-center text-gray-500">Loading pending transactions...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Balance Adjustment Modal -->
@@ -358,7 +393,7 @@
         const response = await fetch(url, { ...options, headers });
         if (response.status === 401 || response.status === 403) {
           redirectToLogin('Your session has expired. Please log in again.');
-          return; // Stop execution
+          return;
         }
         return response;
       }
@@ -374,11 +409,14 @@
         const tabBtn = document.getElementById('tab-' + tabId);
         tabBtn.classList.remove('tab-inactive');
         tabBtn.classList.add('tab-active');
+
+        // Load data when switching tabs
         if (tabId === 'users') loadUsers();
         if (tabId === 'programs') loadPrograms();
         if (tabId === 'investments') loadActiveInvestments();
         if (tabId === 'overview') loadStats();
         if (tabId === 'announcements') loadAnnouncementsAdmin();
+        if (tabId === 'transactions') loadPendingTransactions();
       };
 
       // ---------- Logout ----------
@@ -613,7 +651,6 @@
           if (!res) return;
           const data = await res.json();
           if (!res.ok) {
-            // Show the actual error message from the server
             throw new Error(data.message || data.error || 'Deletion failed');
           }
           alert(data.message || 'Program deleted successfully.');
@@ -747,6 +784,86 @@
           btn.textContent = '📢 Post Announcement';
         }
       };
+
+      // ---------- Pending Transactions (NEW) ----------
+      async function loadPendingTransactions() {
+        const tbody = document.getElementById('transactionsTableBody');
+        tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-500">Loading...</td></tr>';
+        try {
+          const res = await fetchWithAuth(`${API_BASE}/admin/transactions/pending`);
+          if (!res) return;
+          const data = await res.json();
+          if (data.success && data.data.length > 0) {
+            tbody.innerHTML = data.data.map(tx => {
+              const typeClass = tx.transaction_type === 'deposit' ? 'text-emerald-600' : 'text-amber-600';
+              const date = new Date(tx.created_at).toLocaleString();
+              return `
+                <tr class="hover:bg-gray-50">
+                  <td class="p-3">${tx.id}</td>
+                  <td class="p-3 font-semibold">${tx.full_name}</td>
+                  <td class="p-3 font-bold ${typeClass}">${tx.transaction_type}</td>
+                  <td class="p-3 font-bold">UGX ${Number(tx.amount).toLocaleString()}</td>
+                  <td class="p-3">${tx.phone_number}</td>
+                  <td class="p-3 text-xs font-mono">${tx.reference}</td>
+                  <td class="p-3 text-xs">${date}</td>
+                  <td class="p-3 space-x-1 whitespace-nowrap">
+                    <button onclick="approveTransaction(${tx.id}, '${tx.transaction_type}')" 
+                            class="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded font-semibold transition">
+                      Approve
+                    </button>
+                    <button onclick="rejectTransaction(${tx.id}, '${tx.transaction_type}')" 
+                            class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
+                      Reject
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-400">No pending transactions.</td></tr>';
+          }
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
+        }
+      }
+
+      // Approve transaction
+      async function approveTransaction(txId, type) {
+        if (!confirm(`Approve this ${type}?`)) return;
+        try {
+          const endpoint = type === 'deposit' ? 'deposit' : 'withdrawal';
+          const res = await fetchWithAuth(`${API_BASE}/admin/transactions/${endpoint}/${txId}/approve`, {
+            method: 'POST'
+          });
+          if (!res) return;
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Approval failed');
+          alert(data.message);
+          loadPendingTransactions();
+          loadStats();
+        } catch (err) {
+          alert('❌ Error: ' + err.message);
+        }
+      }
+
+      // Reject transaction
+      async function rejectTransaction(txId, type) {
+        if (!confirm(`Reject this ${type}? This may refund the user (for withdrawals).`)) return;
+        try {
+          const endpoint = type === 'deposit' ? 'deposit' : 'withdrawal';
+          const res = await fetchWithAuth(`${API_BASE}/admin/transactions/${endpoint}/${txId}/reject`, {
+            method: 'POST'
+          });
+          if (!res) return;
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Rejection failed');
+          alert(data.message);
+          loadPendingTransactions();
+          loadStats();
+        } catch (err) {
+          alert('❌ Error: ' + err.message);
+        }
+      }
 
       // ---------- Initial Load ----------
       document.addEventListener('DOMContentLoaded', function() {

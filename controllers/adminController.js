@@ -201,7 +201,7 @@ exports.postAnnouncement = async (req, res) => {
   }
 };
 
-// ✅ NEW: Delete announcement
+// ✅ Delete announcement
 exports.deleteAnnouncement = async (req, res) => {
   const { id } = req.params;
   try {
@@ -216,7 +216,7 @@ exports.deleteAnnouncement = async (req, res) => {
   }
 };
 
-// ✅ NEW: Get all announcements (admin version)
+// ✅ Get all announcements (admin version)
 exports.getAnnouncements = async (req, res) => {
   try {
     const [rows] = await db.execute('SELECT * FROM announcements ORDER BY created_at DESC');
@@ -227,7 +227,7 @@ exports.getAnnouncements = async (req, res) => {
   }
 };
 
-// ✅ NEW: Get platform stats
+// ✅ Get platform stats
 exports.getStats = async (req, res) => {
   try {
     const [userCount] = await db.execute('SELECT COUNT(*) AS total FROM users');
@@ -253,5 +253,158 @@ exports.getStats = async (req, res) => {
   } catch (error) {
     console.error('Stats Error:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch stats.' });
+  }
+};
+
+// ===== NEW: Pending Transactions Management =====
+exports.getPendingTransactions = async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT t.*, u.full_name, u.phone_number 
+       FROM transactions t
+       JOIN users u ON t.user_id = u.id
+       WHERE t.status = 'pending' 
+       ORDER BY t.created_at ASC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Get pending transactions error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch pending transactions.' });
+  }
+};
+
+exports.approveDeposit = async (req, res) => {
+  const { id } = req.params;
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [txRows] = await connection.execute(
+      `SELECT * FROM transactions WHERE id = ? AND transaction_type = 'deposit' AND status = 'pending' FOR UPDATE`,
+      [id]
+    );
+    if (txRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Pending deposit not found.' });
+    }
+
+    const tx = txRows[0];
+
+    // Credit user's wallet
+    await connection.execute(
+      `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
+      [tx.amount, tx.user_id]
+    );
+
+    // Update transaction status
+    await connection.execute(
+      `UPDATE transactions SET status = 'completed', external_ref = ? WHERE id = ?`,
+      [`Admin approved ${new Date().toISOString()}`, id]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Deposit approved and credited.' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Approve deposit error:', error);
+    res.status(500).json({ success: false, message: 'Failed to approve deposit.' });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+exports.rejectDeposit = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await db.execute(
+      `UPDATE transactions SET status = 'failed', external_ref = ? WHERE id = ? AND transaction_type = 'deposit' AND status = 'pending'`,
+      [`Admin rejected ${new Date().toISOString()}`, id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Pending deposit not found.' });
+    }
+    res.json({ success: true, message: 'Deposit rejected.' });
+  } catch (error) {
+    console.error('Reject deposit error:', error);
+    res.status(500).json({ success: false, message: 'Failed to reject deposit.' });
+  }
+};
+
+exports.approveWithdrawal = async (req, res) => {
+  const { id } = req.params;
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [txRows] = await connection.execute(
+      `SELECT * FROM transactions WHERE id = ? AND transaction_type = 'withdrawal' AND status = 'pending' FOR UPDATE`,
+      [id]
+    );
+    if (txRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Pending withdrawal not found.' });
+    }
+
+    const tx = txRows[0];
+
+    // Update transaction status to completed
+    await connection.execute(
+      `UPDATE transactions SET status = 'completed', external_ref = ? WHERE id = ?`,
+      [`Admin approved ${new Date().toISOString()}`, id]
+    );
+
+    // (Optional) trigger B2C payout here if integrated.
+
+    await connection.commit();
+    res.json({ success: true, message: 'Withdrawal approved.' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Approve withdrawal error:', error);
+    res.status(500).json({ success: false, message: 'Failed to approve withdrawal.' });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+exports.rejectWithdrawal = async (req, res) => {
+  const { id } = req.params;
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [txRows] = await connection.execute(
+      `SELECT * FROM transactions WHERE id = ? AND transaction_type = 'withdrawal' AND status = 'pending' FOR UPDATE`,
+      [id]
+    );
+    if (txRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Pending withdrawal not found.' });
+    }
+
+    const tx = txRows[0];
+
+    // Refund the user's wallet
+    await connection.execute(
+      `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
+      [tx.amount, tx.user_id]
+    );
+
+    // Update transaction status
+    await connection.execute(
+      `UPDATE transactions SET status = 'failed', external_ref = ? WHERE id = ?`,
+      [`Admin rejected ${new Date().toISOString()}`, id]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Withdrawal rejected and balance refunded.' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Reject withdrawal error:', error);
+    res.status(500).json({ success: false, message: 'Failed to reject withdrawal.' });
+  } finally {
+    if (connection) connection.release();
   }
 };
