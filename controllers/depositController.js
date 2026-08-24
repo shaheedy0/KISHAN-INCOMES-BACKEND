@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const crypto = require('crypto');
+const { processReferralBonus } = require('./webhookController'); // ✅ Import referral bonus helper
 
 /**
  * Helper: Format Ugandan phone numbers to standard international format (2567XXXXXXXX)
@@ -224,6 +225,9 @@ exports.handleSMSWebhook = async (req, res) => {
       `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [tx.amount, tx.user_id]
     );
+
+    // 8. ✅ Award referral bonus if applicable (first deposit)
+    await processReferralBonus(connection, tx.user_id, tx.amount);
 
     await connection.commit();
     console.log(`[SUCCESS] Wallet Updated! User ID ${tx.user_id} credited with UGX ${tx.amount}`);

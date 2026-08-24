@@ -59,7 +59,7 @@ exports.handleTelecomWebhook = async (req, res) => {
         [external_ref || null, tx.id]
       );
 
-      // B. Credit user's main wallet balance (✅ Correct table)
+      // B. Credit user's main wallet balance
       await connection.execute(
         `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
         [depositAmount, tx.user_id]
@@ -113,6 +113,7 @@ async function processReferralBonus(connection, userId, depositAmount) {
       [userId]
     );
 
+    // Only award bonus if this is the first completed deposit
     if (depositCount[0].count === 1) {
       const BONUS_AMOUNT = 5000;
 
@@ -124,10 +125,18 @@ async function processReferralBonus(connection, userId, depositAmount) {
       if (referrerRows.length > 0) {
         const referrerId = referrerRows[0].id;
 
-        // ✅ Update bonus_balance in wallets table
+        // Credit bonus to referrer's bonus_balance
         await connection.execute(
           `UPDATE wallets SET bonus_balance = bonus_balance + ? WHERE user_id = ?`,
           [BONUS_AMOUNT, referrerId]
+        );
+
+        // Record bonus transaction
+        const ref = `BONUS-${userId}-${Date.now()}`;
+        await connection.execute(
+          `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status, external_ref)
+           VALUES (?, ?, 'REFERRAL', 'BONUS', ?, 'referral_bonus', 'completed', ?)`,
+          [referrerId, ref, BONUS_AMOUNT, `Referral bonus for user ${userId}`]
         );
 
         console.log(`[Referral] Awarded UGX ${BONUS_AMOUNT} bonus to referrer #${referrerId} for user #${userId}`);
@@ -137,3 +146,6 @@ async function processReferralBonus(connection, userId, depositAmount) {
     console.error('[Referral Bonus Error]:', err.message);
   }
 }
+
+// Export the helper so depositController can use it
+exports.processReferralBonus = processReferralBonus;
