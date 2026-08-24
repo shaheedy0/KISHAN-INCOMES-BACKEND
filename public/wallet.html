@@ -151,7 +151,36 @@
       </div>
     </section>
 
-    <!-- Mobile Money Deposit Modal -->
+    <!-- ===== NEW: TRANSACTION HISTORY SECTION ===== -->
+    <section class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden mt-8">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-gray-800">📜 Transaction History</h2>
+          <p class="text-xs text-gray-500">All your deposits, withdrawals, and earnings</p>
+        </div>
+        <button onclick="loadTransactionHistory()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-semibold transition">
+          🔄 Refresh
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-gray-600">
+          <thead class="bg-gray-50 text-gray-500 uppercase font-semibold text-[11px] border-b">
+            <tr>
+              <th class="p-4">Reference</th>
+              <th class="p-4">Type</th>
+              <th class="p-4">Amount</th>
+              <th class="p-4">Status</th>
+              <th class="p-4">Date</th>
+            </tr>
+          </thead>
+          <tbody id="transactionsHistoryBody" class="divide-y divide-gray-100">
+            <tr><td colspan="5" class="p-8 text-center text-gray-400">Loading transactions...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Mobile Money Deposit Modal ===== -->
     <div id="depositModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
         <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
@@ -242,7 +271,7 @@
       </div>
     </div>
 
-    <!-- Mobile Money Withdrawal Modal -->
+    <!-- ===== Mobile Money Withdrawal Modal ===== -->
     <div id="withdrawalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
         <div class="bg-amber-900 text-white px-6 py-4 flex justify-between items-center">
@@ -318,7 +347,7 @@
       let currentLiquidBalance = 0;
 
       // =========================================================
-      //  REFERRAL LINK FUNCTIONS (NEW)
+      //  REFERRAL LINK FUNCTIONS
       // =========================================================
       function generateReferralLink() {
         const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
@@ -546,6 +575,43 @@
       }
 
       // =========================================================
+      //  TRANSACTION HISTORY (NEW)
+      // =========================================================
+      async function loadTransactionHistory() {
+        const tbody = document.getElementById('transactionsHistoryBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400">Loading...</td></tr>';
+        try {
+          const token = localStorage.getItem('kishan_token');
+          const res = await fetch(`${API_BASE}/withdrawal/history`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch transactions');
+          const data = await res.json();
+          if (data.success && data.data.length > 0) {
+            tbody.innerHTML = data.data.map(tx => {
+              const statusClass = tx.status === 'completed' ? 'text-emerald-600' : tx.status === 'pending' ? 'text-amber-600' : 'text-red-600';
+              let typeClass = 'text-emerald-700';
+              if (tx.transaction_type === 'withdrawal') typeClass = 'text-amber-700';
+              else if (tx.transaction_type === 'daily_earning' || tx.transaction_type === 'maturity_payout') typeClass = 'text-blue-700';
+              return `
+                <tr class="hover:bg-gray-50">
+                  <td class="p-4 font-mono text-xs">${tx.reference}</td>
+                  <td class="p-4 font-semibold ${typeClass}">${tx.transaction_type}</td>
+                  <td class="p-4 font-bold">UGX ${Number(tx.amount).toLocaleString()}</td>
+                  <td class="p-4 font-semibold ${statusClass}">${tx.status}</td>
+                  <td class="p-4 text-gray-500">${new Date(tx.created_at).toLocaleString()}</td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400">No transactions found.</td></tr>';
+          }
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">${err.message}</td></tr>`;
+        }
+      }
+
+      // =========================================================
       //  DEPOSIT MODAL
       // =========================================================
       window.openDepositModal = function() {
@@ -645,6 +711,7 @@
                 window.closeDepositModal();
                 window.fetchBalance();
                 window.fetchWalletData();
+                loadTransactionHistory();
               } else if (data.transaction.status === 'failed') {
                 clearInterval(pollInterval);
                 alert('Deposit transaction failed or was cancelled by user.');
@@ -730,6 +797,7 @@
             window.closeWithdrawalModal();
             window.fetchBalance();
             window.fetchWalletData();
+            loadTransactionHistory();
           }, 2000);
 
         } catch (err) {
@@ -769,12 +837,14 @@
 
         window.fetchBalance();
         window.fetchWalletData();
-        displayReferralLink(); // 🔗 Show the referral link
+        displayReferralLink();
+        loadTransactionHistory(); // ✅ Load transaction history
 
         // Auto-refresh every 60 seconds
         setInterval(() => {
           window.fetchBalance();
           window.fetchWalletData();
+          loadTransactionHistory();
         }, 60000);
       });
 

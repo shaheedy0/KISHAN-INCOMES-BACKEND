@@ -8,13 +8,13 @@ function formatUGPhoneNumber(phone) {
   } else if (cleaned.startsWith('7')) {
     cleaned = '256' + cleaned;
   }
-  
   if (!/^2567\d{8}$/.test(cleaned)) {
     throw new Error('Invalid Ugandan phone number. Must be MTN or Airtel (e.g., 077... or 070...).');
   }
   return cleaned;
 }
 
+// ===== REQUEST WITHDRAWAL (PENDING, NO AUTO‑COMPLETE) =====
 exports.requestWithdrawal = async (req, res) => {
   let connection;
 
@@ -45,7 +45,7 @@ exports.requestWithdrawal = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // ✅ Lock wallet row instead of users table
+    // Lock wallet
     const [walletRows] = await connection.execute(
       `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [userId]
@@ -61,16 +61,17 @@ exports.requestWithdrawal = async (req, res) => {
     if (currentBalance < withdrawAmount) {
       await connection.rollback();
       return res.status(400).json({ 
-        message: `Insufficient wallet balance. Available balance: UGX ${currentBalance.toLocaleString()}` 
+        message: `Insufficient wallet balance. Available: UGX ${currentBalance.toLocaleString()}` 
       });
     }
 
-    // ✅ Deduct from wallets
+    // Deduct balance (hold funds)
     await connection.execute(
       `UPDATE wallets SET balance = balance - ? WHERE user_id = ?`,
       [withdrawAmount, userId]
     );
 
+    // Create pending transaction (status = 'pending')
     const [txResult] = await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
        VALUES (?, ?, ?, ?, ?, 'withdrawal', 'pending')`,
@@ -81,64 +82,48 @@ exports.requestWithdrawal = async (req, res) => {
 
     await connection.commit();
 
-    const newBalance = currentBalance - withdrawAmount;
-
-    try {
-      const payoutResponse = await executeB2CPayoutAPI({
-        reference: txReference,
-        phone: formattedPhone,
-        amount: withdrawAmount,
-        network: network.toUpperCase()
-      });
-
-      await db.execute(
-        `UPDATE transactions SET external_ref = ?, status = ? WHERE id = ?`,
-        [payoutResponse.externalRef, payoutResponse.status, transactionId]
-      );
-
-      return res.status(200).json({
-        success: true,
-        message: `Withdrawal request of UGX ${withdrawAmount.toLocaleString()} submitted. Funds will be sent to ${formattedPhone}.`,
-        reference: txReference,
-        newBalance: newBalance
-      });
-
-    } catch (payoutError) {
-      console.error('[B2C API Error]:', payoutError.message);
-
-      // Refund the user balance if payout failed
-      await db.execute(
-        `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
-        [withdrawAmount, userId]
-      );
-
-      await db.execute(
-        `UPDATE transactions SET status = 'failed' WHERE id = ?`,
-        [transactionId]
-      );
-
-      return res.status(502).json({
-        success: false,
-        message: 'Mobile Money network payout failed. Your wallet balance has been refunded.'
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: `Withdrawal request of UGX ${withdrawAmount.toLocaleString()} submitted for admin approval. You will receive funds once approved.`,
+      reference: txReference,
+      transactionId: transactionId,
+      newBalance: currentBalance - withdrawAmount
+    });
 
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('Withdrawal Processing Error:', error.message);
     return res.status(500).json({ 
       success: false, 
-      message: error.message || 'Internal server error processing withdrawal.' 
+      message: error.message || 'Internal server error processing withdrawal.'
     });
   } finally {
     if (connection) connection.release();
   }
 };
 
+// ===== GET USER TRANSACTION HISTORY (ALL TYPES) =====
+exports.getTransactionHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [rows] = await db.execute(
+      `SELECT id, reference, phone_number, network, amount, transaction_type, status, created_at 
+       FROM transactions 
+       WHERE user_id = ? 
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Transaction history error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch transaction history.' });
+  }
+};
+
+// ===== GET WITHDRAWAL HISTORY (legacy) =====
 exports.getWithdrawalHistory = async (req, res) => {
   try {
     const userId = req.user.id;
-
     const [rows] = await db.execute(
       `SELECT id, reference, phone_number, network, amount, status, external_ref, created_at 
        FROM transactions 
@@ -146,7 +131,6 @@ exports.getWithdrawalHistory = async (req, res) => {
        ORDER BY created_at DESC`,
       [userId]
     );
-
     return res.status(200).json(rows);
   } catch (error) {
     console.error('Fetch Withdrawal History Error:', error);
@@ -154,7 +138,9 @@ exports.getWithdrawalHistory = async (req, res) => {
   }
 };
 
+// ===== (Helper) B2C Payout – used by admin approval (kept for compatibility) =====
 async function executeB2CPayoutAPI({ reference, phone, amount, network }) {
+  // Mock – replace with actual aggregator call
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
@@ -164,3 +150,4 @@ async function executeB2CPayoutAPI({ reference, phone, amount, network }) {
     }, 1000);
   });
 }
+exports.executeB2CPayoutAPI = executeB2CPayoutAPI;
