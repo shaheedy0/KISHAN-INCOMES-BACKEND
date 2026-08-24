@@ -1,5 +1,7 @@
 const db = require('../config/db');
 
+// ---------- Existing functions (kept as they are) ----------
+
 exports.getAllActiveInvestments = async (req, res) => {
   try {
     const [investments] = await db.execute(
@@ -68,7 +70,6 @@ exports.forceMaturityPayout = async (req, res) => {
 
     const payoutAmount = parseFloat(inv.expected_payout);
 
-    // ✅ Credit to wallets instead of users
     await connection.execute(
       `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [payoutAmount, inv.user_id]
@@ -131,7 +132,6 @@ exports.adjustUserBalance = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // ✅ Lock wallet row instead of users
     const [walletRows] = await connection.execute(
       `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [target_user_id]
@@ -203,5 +203,39 @@ exports.postAnnouncement = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Failed to post announcement.' });
+  }
+};
+
+// ---------- NEW: Get platform statistics ----------
+exports.getStats = async (req, res) => {
+  try {
+    // Total users
+    const [userCount] = await db.execute('SELECT COUNT(*) AS total FROM users');
+    // Total active programs
+    const [programCount] = await db.execute('SELECT COUNT(*) AS total FROM investment_programs WHERE status = "active"');
+    // Total active investments
+    const [activeInvestments] = await db.execute('SELECT COUNT(*) AS total FROM user_investments WHERE status = "active"');
+    // Total wallet balance (sum of all wallets)
+    const [walletSum] = await db.execute('SELECT SUM(balance) AS total_balance FROM wallets');
+    // Total bonus balance
+    const [bonusSum] = await db.execute('SELECT SUM(bonus_balance) AS total_bonus FROM wallets');
+
+    const totalBalance = parseFloat(walletSum[0].total_balance) || 0;
+    const totalBonus = parseFloat(bonusSum[0].total_bonus) || 0;
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers: userCount[0].total,
+        totalPrograms: programCount[0].total,
+        totalActiveInvestments: activeInvestments[0].total,
+        totalWalletBalance: totalBalance,
+        totalBonusBalance: totalBonus,
+        platformBalance: totalBalance + totalBonus  // combined
+      }
+    });
+  } catch (error) {
+    console.error('Stats Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch stats.' });
   }
 };

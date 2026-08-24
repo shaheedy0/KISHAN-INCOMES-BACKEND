@@ -6,11 +6,16 @@ const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
 router.use(verifyToken, verifyAdmin);
 
-// Fetch registered members with a simple, safe query
+// ----- Existing routes -----
 router.get('/users', async (req, res) => {
   try {
-    // Select just the ID and all columns safely; if columns don't exist, this prevents crashes
-    const [users] = await db.execute('SELECT * FROM users ORDER BY id DESC');
+    // Return users with their wallet balance (join wallets)
+    const [users] = await db.execute(`
+      SELECT u.*, w.balance, w.bonus_balance 
+      FROM users u 
+      LEFT JOIN wallets w ON u.id = w.user_id 
+      ORDER BY u.id DESC
+    `);
     res.json(users);
   } catch (error) {
     console.error('Admin DB Error:', error);
@@ -18,7 +23,6 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// Update member role
 router.patch('/users/:id/role', async (req, res) => {
   const { role } = req.body;
   const userId = req.params.id;
@@ -36,7 +40,6 @@ router.patch('/users/:id/role', async (req, res) => {
   }
 });
 
-// Create investment program (populates status and is_active safely)
 router.post('/programs', async (req, res) => {
   const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
 
@@ -66,7 +69,6 @@ router.post('/programs', async (req, res) => {
   }
 });
 
-// Delete investment program
 router.delete('/programs/:id', async (req, res) => {
   try {
     await db.execute('DELETE FROM investment_programs WHERE id = ?', [req.params.id]);
@@ -81,5 +83,8 @@ router.get('/investments/active', adminController.getAllActiveInvestments);
 router.post('/investments/:id/payout', adminController.forceMaturityPayout);
 router.post('/users/adjust-balance', adminController.adjustUserBalance);
 router.post('/announcements', adminController.postAnnouncement);
+
+// ----- NEW: Stats endpoint -----
+router.get('/stats', adminController.getStats);
 
 module.exports = router;

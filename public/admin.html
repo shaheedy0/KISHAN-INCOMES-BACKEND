@@ -5,162 +5,278 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - KISHAN INCOME</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .tab-active { border-bottom: 3px solid #059669; color: #065f46; }
+    .tab-inactive { border-bottom: 3px solid transparent; color: #6b7280; }
+    .tab-inactive:hover { border-bottom: 3px solid #d1d5db; color: #374151; }
+  </style>
 </head>
-<body class="bg-gray-100 min-h-screen text-gray-800 flex flex-col justify-between font-sans">
+<body class="bg-gray-100 min-h-screen text-gray-800">
 
   <!-- Navigation Header -->
-  <header class="bg-gray-900 text-white p-4 shadow-md flex justify-between items-center">
+  <header class="bg-gray-900 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-10">
     <div>
       <h1 class="text-xl font-bold tracking-wide">Kishan SACCO Admin Panel</h1>
       <p class="text-xs text-gray-400">System Management & Administration</p>
     </div>
     <div class="flex items-center gap-4">
-      <a href="index.html" class="text-sm text-gray-300 hover:text-white transition font-medium border-r border-gray-600 pr-3">
-        📊 Dashboard
-      </a>
-      <a href="wallet.html" class="text-sm text-gray-300 hover:text-white transition font-medium border-r border-gray-600 pr-3">
-        💰 Wallet
-      </a>
+      <a href="index.html" class="text-sm text-gray-300 hover:text-white transition font-medium border-r border-gray-600 pr-3">📊 Dashboard</a>
+      <a href="wallet.html" class="text-sm text-gray-300 hover:text-white transition font-medium border-r border-gray-600 pr-3">💰 Wallet</a>
       <span id="adminDisplay" class="font-medium text-sm bg-gray-800 px-3 py-1 rounded-full border border-gray-700">Admin</span>
       <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto p-4 flex-grow w-full space-y-8">
-    
-    <!-- Quick Stats Overview -->
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
-        <h4 class="text-xs uppercase font-bold text-gray-500">Total Registered Members</h4>
-        <p id="statTotalUsers" class="text-2xl font-extrabold text-emerald-800 mt-1">0</p>
-      </div>
-      <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
-        <h4 class="text-xs uppercase font-bold text-gray-500">Active Investment Programs</h4>
-        <p id="statTotalPrograms" class="text-2xl font-extrabold text-blue-800 mt-1">0</p>
-      </div>
-      <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
-        <h4 class="text-xs uppercase font-bold text-gray-500">System Status</h4>
-        <p class="text-2xl font-extrabold text-green-600 mt-1">Operational</p>
-      </div>
-    </section>
+  <main class="max-w-7xl mx-auto p-4 flex-grow w-full space-y-6">
 
-    <!-- Investment Program Management Section -->
-    <section class="bg-white rounded-xl shadow border border-gray-200 p-6">
-      <div class="flex justify-between items-center mb-4">
-        <div>
-          <h3 class="text-lg font-bold text-gray-800">Investment Programs Management</h3>
-          <p class="text-xs text-gray-500">Create and monitor active investment offerings for members</p>
+    <!-- Tabs Navigation -->
+    <div class="bg-white rounded-xl shadow border border-gray-200 p-2 flex flex-wrap gap-1">
+      <button onclick="switchTab('overview')" id="tab-overview" class="tab-active px-4 py-2 text-sm font-semibold transition">📊 Overview</button>
+      <button onclick="switchTab('users')" id="tab-users" class="tab-inactive px-4 py-2 text-sm font-semibold transition">👥 Users</button>
+      <button onclick="switchTab('programs')" id="tab-programs" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📈 Programs</button>
+      <button onclick="switchTab('investments')" id="tab-investments" class="tab-inactive px-4 py-2 text-sm font-semibold transition">💼 Active Investments</button>
+      <button onclick="switchTab('announcements')" id="tab-announcements" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📢 Announcements</button>
+    </div>
+
+    <!-- ==================== TAB 1: OVERVIEW ==================== -->
+    <div id="section-overview" class="space-y-6">
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+          <h4 class="text-xs uppercase font-bold text-gray-500">Registered Members</h4>
+          <p id="statTotalUsers" class="text-2xl font-extrabold text-emerald-800 mt-1">0</p>
         </div>
-        <button onclick="toggleProgramForm()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition">
-          + Add New Program
-        </button>
+        <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+          <h4 class="text-xs uppercase font-bold text-gray-500">Active Programs</h4>
+          <p id="statTotalPrograms" class="text-2xl font-extrabold text-blue-800 mt-1">0</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+          <h4 class="text-xs uppercase font-bold text-gray-500">Active Investments</h4>
+          <p id="statActiveInvestments" class="text-2xl font-extrabold text-purple-800 mt-1">0</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+          <h4 class="text-xs uppercase font-bold text-gray-500">Total Platform Balance</h4>
+          <p id="statTotalBalance" class="text-2xl font-extrabold text-amber-800 mt-1">UGX 0</p>
+        </div>
       </div>
+      <!-- Additional stats (optional) -->
+      <div class="bg-white p-5 rounded-xl shadow border border-gray-200">
+        <h4 class="text-sm font-bold text-gray-700 mb-2">System Overview</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div><span class="text-gray-500">Total Wallet Balance:</span> <span id="statWalletBalance" class="font-bold">UGX 0</span></div>
+          <div><span class="text-gray-500">Total Bonus Balance:</span> <span id="statBonusBalance" class="font-bold">UGX 0</span></div>
+          <div><span class="text-gray-500">Combined Balance:</span> <span id="statCombinedBalance" class="font-bold">UGX 0</span></div>
+          <div><span class="text-gray-500">System Status:</span> <span class="text-green-600 font-bold">Operational</span></div>
+        </div>
+      </div>
+    </div>
 
-      <!-- Add Program Collapsible Form -->
-      <form id="programForm" onsubmit="handleCreateProgram(event)" class="hidden bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 space-y-4">
-        <h4 class="font-bold text-sm text-gray-700 border-b pb-2">Create Investment Program</h4>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- ==================== TAB 2: USERS ==================== -->
+    <div id="section-users" class="hidden space-y-6">
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-gray-800">Registered Members</h3>
+            <p class="text-xs text-gray-500">Manage user roles and balances</p>
+          </div>
+          <div class="w-full md:w-64">
+            <input type="text" id="userSearch" oninput="filterUsers()" placeholder="Search members..." class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
+                <th class="p-3">ID</th>
+                <th class="p-3">Full Name</th>
+                <th class="p-3">Phone</th>
+                <th class="p-3">Balance</th>
+                <th class="p-3">Role</th>
+                <th class="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="text-sm divide-y">
+              <tr><td colspan="6" class="p-4 text-center text-gray-500">Loading members...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: PROGRAMS ==================== -->
+    <div id="section-programs" class="hidden space-y-6">
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-gray-800">Investment Programs</h3>
+            <p class="text-xs text-gray-500">Create and manage investment offerings</p>
+          </div>
+          <button onclick="toggleProgramForm()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition">
+            + Add New Program
+          </button>
+        </div>
+
+        <!-- Add Program Form -->
+        <form id="programForm" onsubmit="handleCreateProgram(event)" class="hidden bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 space-y-4">
+          <h4 class="font-bold text-sm text-gray-700 border-b pb-2">Create Investment Program</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Title</label>
+              <input type="text" id="progTitle" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Share Price (UGX)</label>
+              <input type="number" id="progPrice" required min="1" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">ROI (%)</label>
+              <input type="number" id="progRoi" step="0.1" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Lock Duration (Days)</label>
+              <input type="number" id="progDuration" required min="1" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Image URL (Optional)</label>
+              <input type="url" id="progImage" placeholder="https://..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Description</label>
+              <textarea id="progDesc" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600"></textarea>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" onclick="toggleProgramForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs px-4 py-2 rounded-lg font-bold">Cancel</button>
+            <button type="submit" id="saveProgBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-4 py-2 rounded-lg font-bold">Save Program</button>
+          </div>
+        </form>
+
+        <!-- Programs Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
+                <th class="p-3">ID</th>
+                <th class="p-3">Title</th>
+                <th class="p-3">Price</th>
+                <th class="p-3">ROI</th>
+                <th class="p-3">Duration</th>
+                <th class="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="programsTableBody" class="text-sm divide-y">
+              <tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 4: ACTIVE INVESTMENTS ==================== -->
+    <div id="section-investments" class="hidden space-y-6">
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-gray-800">Active User Investments</h3>
+            <p class="text-xs text-gray-500">View and manually mature investments</p>
+          </div>
+          <button onclick="refreshActiveInvestments()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition">
+            🔄 Refresh
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
+                <th class="p-3">User</th>
+                <th class="p-3">Program</th>
+                <th class="p-3">Shares</th>
+                <th class="p-3">Invested</th>
+                <th class="p-3">Expected Payout</th>
+                <th class="p-3">Maturity Date</th>
+                <th class="p-3">Action</th>
+              </tr>
+            </thead>
+            <tbody id="activeInvestmentsBody" class="text-sm divide-y">
+              <tr><td colspan="7" class="p-4 text-center text-gray-500">Loading active investments...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 5: ANNOUNCEMENTS ==================== -->
+    <div id="section-announcements" class="hidden space-y-6">
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-2">Post Announcement</h3>
+        <p class="text-xs text-gray-500 mb-4">Broadcast a message to all members</p>
+        <form id="announcementForm" onsubmit="handleAnnouncement(event)" class="space-y-4">
           <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Title</label>
-            <input type="text" id="progTitle" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            <input type="text" id="annTitle" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
           </div>
           <div>
-            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Share Price (UGX)</label>
-            <input type="number" id="progPrice" required min="1" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Message</label>
+            <textarea id="annMessage" rows="4" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600"></textarea>
           </div>
-          <div>
-            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">ROI Percentage (%)</label>
-            <input type="number" id="progRoi" step="0.1" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Lock Duration (Days)</label>
-            <input type="number" id="progDuration" required min="1" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Image URL (Optional)</label>
-            <input type="url" id="progImage" placeholder="https://..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Description</label>
-            <textarea id="progDesc" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600"></textarea>
-          </div>
-        </div>
-        <div class="flex justify-end gap-2">
-          <button type="button" onclick="toggleProgramForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs px-4 py-2 rounded-lg font-bold">Cancel</button>
-          <button type="submit" id="saveProgBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-4 py-2 rounded-lg font-bold">Save Program</button>
-        </div>
-      </form>
-
-      <!-- Programs Table -->
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
-              <th class="p-3">ID</th>
-              <th class="p-3">Title</th>
-              <th class="p-3">Share Price</th>
-              <th class="p-3">ROI</th>
-              <th class="p-3">Duration</th>
-              <th class="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="programsTableBody" class="text-sm divide-y">
-            <tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>
-          </tbody>
-        </table>
+          <button type="submit" id="postAnnBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition shadow">
+            📢 Post Announcement
+          </button>
+        </form>
+        <div id="announcementStatus" class="mt-3 text-sm font-medium"></div>
       </div>
-    </section>
-
-    <!-- Registered Members Section -->
-    <section class="bg-white rounded-xl shadow border border-gray-200 p-6">
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-        <div>
-          <h3 class="text-lg font-bold text-gray-800">Registered Members</h3>
-          <p class="text-xs text-gray-500">Manage user authorization and platform permissions</p>
-        </div>
-        <div class="w-full md:w-64">
-          <input type="text" id="userSearch" oninput="filterUsers()" placeholder="Search members..." class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
-        </div>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-bold border-b">
-              <th class="p-3">ID</th>
-              <th class="p-3">Full Name</th>
-              <th class="p-3">Phone Number</th>
-              <th class="p-3">Role</th>
-              <th class="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="usersTableBody" class="text-sm divide-y">
-            <tr><td colspan="5" class="p-4 text-center text-gray-500">Loading member data...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    </div>
 
   </main>
 
-  <!-- ✅ All JavaScript consolidated here -->
+  <!-- ========== MODALS ========== -->
+
+  <!-- Balance Adjustment Modal -->
+  <div id="balanceModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-800">Adjust User Balance</h3>
+        <button onclick="closeBalanceModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+      </div>
+      <form id="balanceForm" onsubmit="handleBalanceAdjust(event)" class="space-y-4">
+        <p class="text-sm text-gray-600">User ID: <span id="balUserId" class="font-bold">-</span></p>
+        <p class="text-sm text-gray-600">Current Balance: <span id="balCurrentBalance" class="font-bold">UGX 0</span></p>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Adjustment Type</label>
+          <select id="balType" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+            <option value="credit">Credit</option>
+            <option value="debit">Debit</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Amount (UGX)</label>
+          <input type="number" id="balAmount" min="1" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Reason</label>
+          <input type="text" id="balReason" required placeholder="e.g., Bonus adjustment" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+        </div>
+        <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-2.5 rounded-xl transition shadow">Apply Adjustment</button>
+      </form>
+    </div>
+  </div>
+
   <script>
     (function() {
       'use strict';
 
-      // ✅ Configuration
+      // ---------- Configuration ----------
       const API_BASE = 'https://kishan-incomes.onrender.com/api';
       const token = localStorage.getItem('kishan_token');
       let cachedUsers = [];
+      let activeInvestments = [];
 
-      // ✅ Auth Check
+      // ---------- Auth Check ----------
       if (!token) {
         alert('Please log in first.');
         window.location.href = 'index.html';
         return;
       }
-
-      // ✅ Verify user is admin
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
       if (user.role !== 'admin') {
         alert('Access denied. Admin privileges required.');
@@ -168,73 +284,101 @@
         return;
       }
 
-      // ✅ Display admin info
-      function displayAdminInfo() {
-        const adminDisplay = document.getElementById('adminDisplay');
-        if (adminDisplay && user.full_name) {
-          adminDisplay.textContent = `👑 ${user.full_name}`;
+      // Display admin name
+      document.getElementById('adminDisplay').textContent = `👑 ${user.full_name}`;
+
+      // ---------- Tab Switching ----------
+      window.switchTab = function(tabId) {
+        // Hide all sections
+        document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('[id^="tab-"]').forEach(el => {
+          el.classList.remove('tab-active', 'tab-inactive');
+          el.classList.add('tab-inactive');
+        });
+        // Show selected
+        document.getElementById('section-' + tabId).classList.remove('hidden');
+        const tabBtn = document.getElementById('tab-' + tabId);
+        tabBtn.classList.remove('tab-inactive');
+        tabBtn.classList.add('tab-active');
+        // Refresh data on tab switch
+        if (tabId === 'users') loadUsers();
+        if (tabId === 'programs') loadPrograms();
+        if (tabId === 'investments') loadActiveInvestments();
+        if (tabId === 'overview') loadStats();
+      };
+
+      // ---------- Logout ----------
+      window.handleLogout = function() {
+        localStorage.removeItem('kishan_token');
+        localStorage.removeItem('kishan_user');
+        window.location.href = 'index.html';
+      };
+
+      // ---------- Stats ----------
+      async function loadStats() {
+        try {
+          const res = await fetch(`${API_BASE}/admin/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch stats');
+          const data = await res.json();
+          if (data.success) {
+            const s = data.data;
+            document.getElementById('statTotalUsers').textContent = s.totalUsers || 0;
+            document.getElementById('statTotalPrograms').textContent = s.totalPrograms || 0;
+            document.getElementById('statActiveInvestments').textContent = s.totalActiveInvestments || 0;
+            document.getElementById('statTotalBalance').textContent = `UGX ${(s.platformBalance || 0).toLocaleString()}`;
+            document.getElementById('statWalletBalance').textContent = `UGX ${(s.totalWalletBalance || 0).toLocaleString()}`;
+            document.getElementById('statBonusBalance').textContent = `UGX ${(s.totalBonusBalance || 0).toLocaleString()}`;
+            document.getElementById('statCombinedBalance').textContent = `UGX ${(s.platformBalance || 0).toLocaleString()}`;
+          }
+        } catch (err) {
+          console.error('Stats error:', err);
         }
       }
 
-      // ✅ Load users
+      // ---------- Users ----------
       async function loadUsers() {
         const tbody = document.getElementById('usersTableBody');
-        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Loading member data...</td></tr>';
-        
+        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading members...</td></tr>';
         try {
-          const response = await fetch(`${API_BASE}/admin/users`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+          const res = await fetch(`${API_BASE}/admin/users`, {
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          const usersList = Array.isArray(data) ? data : (data.users || data.data || []);
-
-          if (usersList.length > 0) {
-            cachedUsers = usersList;
-            document.getElementById('statTotalUsers').textContent = usersList.length;
-            renderUsersTable(usersList);
-          } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
-          }
-        } catch (error) {
-          console.error('Error loading users:', error);
-          tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+          if (!res.ok) throw new Error('Failed to fetch users');
+          const data = await res.json();
+          cachedUsers = data;
+          renderUsers(cachedUsers);
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
         }
       }
 
-      // ✅ Render users table
-      function renderUsersTable(users) {
+      function renderUsers(users) {
         const tbody = document.getElementById('usersTableBody');
         if (!users || users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No registered members found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No users found.</td></tr>';
           return;
         }
-        
-        tbody.innerHTML = users.map(user => {
-          const nameDisplay = user.full_name || user.full_names || user.email || 'N/A';
-          const roleDisplay = user.role || 'member';
-
+        tbody.innerHTML = users.map(u => {
+          const balance = parseFloat(u.balance) || 0;
           return `
             <tr class="hover:bg-gray-50">
-              <td class="p-3 font-mono text-xs">${user.id}</td>
-              <td class="p-3 font-semibold">${nameDisplay}</td>
-              <td class="p-3 font-mono">${user.phone_number || 'N/A'}</td>
+              <td class="p-3 font-mono text-xs">${u.id}</td>
+              <td class="p-3 font-semibold">${u.full_name || 'N/A'}</td>
+              <td class="p-3 font-mono">${u.phone_number || 'N/A'}</td>
+              <td class="p-3 font-bold text-emerald-700">UGX ${balance.toLocaleString()}</td>
               <td class="p-3">
-                <span class="px-2 py-1 text-xs font-bold rounded ${roleDisplay === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
-                  ${roleDisplay}
+                <span class="px-2 py-1 text-xs font-bold rounded ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                  ${u.role || 'member'}
                 </span>
               </td>
-              <td class="p-3">
-                <button onclick="window.toggleUserRole(${user.id}, '${roleDisplay}')" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded font-semibold transition">
-                  Switch to ${roleDisplay === 'admin' ? 'Member' : 'Admin'}
+              <td class="p-3 space-x-2">
+                <button onclick="openBalanceModal(${u.id}, '${u.full_name}', ${balance})" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded font-semibold transition">
+                  Adjust Balance
+                </button>
+                <button onclick="toggleUserRole(${u.id}, '${u.role}')" class="text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 px-2.5 py-1 rounded font-semibold transition">
+                  ${u.role === 'admin' ? 'Demote' : 'Promote'}
                 </button>
               </td>
             </tr>
@@ -242,7 +386,6 @@
         }).join('');
       }
 
-      // ✅ Filter users
       window.filterUsers = function() {
         const query = document.getElementById('userSearch').value.toLowerCase();
         const filtered = cachedUsers.filter(u => 
@@ -250,165 +393,247 @@
           (u.phone_number && u.phone_number.includes(query)) ||
           (u.email && u.email.toLowerCase().includes(query))
         );
-        renderUsersTable(filtered);
+        renderUsers(filtered);
       };
 
-      // ✅ Load programs
-      async function loadAdminPrograms() {
-        const tbody = document.getElementById('programsTableBody');
-        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>';
-        
-        try {
-          const res = await fetch(`${API_BASE}/investments/programs`);
-          
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-          }
-          
-          const data = await res.json();
-          const programsList = Array.isArray(data) ? data : (data.programs || data.data || []);
-
-          if (programsList.length > 0) {
-            document.getElementById('statTotalPrograms').textContent = programsList.length;
-            tbody.innerHTML = programsList.map(p => `
-              <tr class="hover:bg-gray-50">
-                <td class="p-3">${p.id}</td>
-                <td class="p-3 font-semibold">${p.title}</td>
-                <td class="p-3">UGX ${Number(p.share_price).toLocaleString()}</td>
-                <td class="p-3 text-emerald-700 font-bold">+${p.roi_percentage}%</td>
-                <td class="p-3">${p.duration_days} Days</td>
-                <td class="p-3">
-                  <button onclick="window.deleteProgram(${p.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            `).join('');
-          } else {
-            tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No investment programs available. Create one above!</td></tr>';
-          }
-        } catch (err) {
-          console.error('Error loading programs:', err);
-          tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Error: ${err.message}</td></tr>`;
-        }
-      }
-
-      // ✅ Toggle program form
-      window.toggleProgramForm = function() {
-        document.getElementById('programForm').classList.toggle('hidden');
-      };
-
-      // ✅ Create program
-      window.handleCreateProgram = async function(e) {
-        e.preventDefault();
-        const btn = document.getElementById('saveProgBtn');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-
-        const title = document.getElementById('progTitle').value.trim();
-        const share_price = document.getElementById('progPrice').value;
-        const roi_percentage = document.getElementById('progRoi').value;
-        const duration_days = document.getElementById('progDuration').value;
-        const image_url = document.getElementById('progImage').value.trim() || null;
-        const description = document.getElementById('progDesc').value.trim() || null;
-
-        try {
-          const res = await fetch(`${API_BASE}/investments/programs`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              title,
-              share_price: parseFloat(share_price),
-              roi_percentage: parseFloat(roi_percentage),
-              duration_days: parseInt(duration_days),
-              image_url,
-              description
-            })
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            throw new Error(data.message || 'Failed to create program');
-          }
-          
-          alert('Investment program created successfully!');
-          document.getElementById('programForm').reset();
-          window.toggleProgramForm();
-          loadAdminPrograms();
-        } catch (err) {
-          alert(`Error: ${err.message}`);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Save Program';
-        }
-      };
-
-      // ✅ Toggle user role
+      // Toggle role
       window.toggleUserRole = async function(userId, currentRole) {
         const newRole = currentRole === 'admin' ? 'member' : 'admin';
-        if (!confirm(`Are you sure you want to change user ID ${userId} role to ${newRole}?`)) return;
-
+        if (!confirm(`Change user ID ${userId} role to ${newRole}?`)) return;
         try {
           const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
             method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: newRole })
           });
-
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Failed to update role');
-
-          alert('Role updated successfully!');
+          if (!res.ok) throw new Error('Failed to update role');
+          alert('Role updated!');
           loadUsers();
         } catch (err) {
           alert(err.message);
         }
       };
 
-      // ✅ Delete program
-      window.deleteProgram = async function(programId) {
-        if (!confirm(`Are you sure you want to delete program ID ${programId}?`)) return;
+      // ---------- Balance Adjustment Modal ----------
+      let currentUserId = null;
+      let currentUserBalance = 0;
+
+      window.openBalanceModal = function(userId, userName, balance) {
+        currentUserId = userId;
+        currentUserBalance = balance;
+        document.getElementById('balUserId').textContent = `${userName} (ID: ${userId})`;
+        document.getElementById('balCurrentBalance').textContent = `UGX ${balance.toLocaleString()}`;
+        document.getElementById('balanceModal').classList.remove('hidden');
+        document.getElementById('balAmount').value = '';
+        document.getElementById('balReason').value = '';
+      };
+
+      window.closeBalanceModal = function() {
+        document.getElementById('balanceModal').classList.add('hidden');
+      };
+
+      window.handleBalanceAdjust = async function(e) {
+        e.preventDefault();
+        const type = document.getElementById('balType').value;
+        const amount = parseFloat(document.getElementById('balAmount').value);
+        const reason = document.getElementById('balReason').value.trim();
+        if (!amount || amount <= 0) return alert('Enter a valid amount.');
+        if (!reason) return alert('Please provide a reason.');
+        if (!confirm(`Confirm ${type} of UGX ${amount.toLocaleString()} for user ID ${currentUserId}?`)) return;
 
         try {
-          const res = await fetch(`${API_BASE}/investments/programs/${programId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await fetch(`${API_BASE}/admin/users/adjust-balance`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target_user_id: currentUserId,
+              adjustment_type: type,
+              amount: amount,
+              reason: reason
+            })
           });
-
-          if (!res.ok) throw new Error('Failed to delete program');
-          
-          alert('Program deleted successfully!');
-          loadAdminPrograms();
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Adjustment failed');
+          alert(data.message);
+          closeBalanceModal();
+          loadUsers();
         } catch (err) {
           alert(err.message);
         }
       };
 
-      // ✅ Logout
-      window.handleLogout = function() {
-        localStorage.removeItem('kishan_token');
-        localStorage.removeItem('kishan_user');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'index.html';
+      // ---------- Programs ----------
+      async function loadPrograms() {
+        const tbody = document.getElementById('programsTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>';
+        try {
+          const res = await fetch(`${API_BASE}/investments/programs`);
+          if (!res.ok) throw new Error('Failed to fetch programs');
+          const data = await res.json();
+          const programs = Array.isArray(data) ? data : (data.programs || data.data || []);
+          if (programs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No programs yet.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = programs.map(p => `
+            <tr class="hover:bg-gray-50">
+              <td class="p-3">${p.id}</td>
+              <td class="p-3 font-semibold">${p.title}</td>
+              <td class="p-3">UGX ${Number(p.share_price).toLocaleString()}</td>
+              <td class="p-3 text-emerald-700 font-bold">+${p.roi_percentage}%</td>
+              <td class="p-3">${p.duration_days} Days</td>
+              <td class="p-3">
+                <button onclick="deleteProgram(${p.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
+                  Delete
+                </button>
+              </td>
+            </tr>
+          `).join('');
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
+        }
+      }
+
+      window.toggleProgramForm = function() {
+        document.getElementById('programForm').classList.toggle('hidden');
       };
 
-      // ✅ Initialize on page load
+      window.handleCreateProgram = async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('saveProgBtn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        const payload = {
+          title: document.getElementById('progTitle').value.trim(),
+          share_price: parseFloat(document.getElementById('progPrice').value),
+          roi_percentage: parseFloat(document.getElementById('progRoi').value),
+          duration_days: parseInt(document.getElementById('progDuration').value),
+          image_url: document.getElementById('progImage').value.trim() || null,
+          description: document.getElementById('progDesc').value.trim() || null
+        };
+        try {
+          const res = await fetch(`${API_BASE}/admin/programs`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Creation failed');
+          alert('Program created successfully!');
+          document.getElementById('programForm').reset();
+          toggleProgramForm();
+          loadPrograms();
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Save Program';
+        }
+      };
+
+      window.deleteProgram = async function(id) {
+        if (!confirm(`Delete program ID ${id}?`)) return;
+        try {
+          const res = await fetch(`${API_BASE}/admin/programs/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Deletion failed');
+          alert('Program deleted.');
+          loadPrograms();
+        } catch (err) {
+          alert(err.message);
+        }
+      };
+
+      // ---------- Active Investments ----------
+      async function loadActiveInvestments() {
+        const tbody = document.getElementById('activeInvestmentsBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Loading active investments...</td></tr>';
+        try {
+          const res = await fetch(`${API_BASE}/admin/investments/active`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch active investments');
+          const data = await res.json();
+          if (!data.success) throw new Error(data.message || 'Unknown error');
+          activeInvestments = data.data || [];
+          if (activeInvestments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-400">No active investments.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = activeInvestments.map(inv => `
+            <tr class="hover:bg-gray-50">
+              <td class="p-3">${inv.full_name} (${inv.phone_number})</td>
+              <td class="p-3 font-semibold">${inv.program_title}</td>
+              <td class="p-3">${inv.shares_purchased}</td>
+              <td class="p-3">UGX ${Number(inv.total_invested).toLocaleString()}</td>
+              <td class="p-3 font-bold text-emerald-700">UGX ${Number(inv.expected_payout).toLocaleString()}</td>
+              <td class="p-3">${new Date(inv.maturity_date).toLocaleDateString()}</td>
+              <td class="p-3">
+                <button onclick="manualPayout(${inv.investment_id})" class="text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded font-semibold transition">
+                  Payout Now
+                </button>
+              </td>
+            </tr>
+          `).join('');
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
+        }
+      }
+
+      window.refreshActiveInvestments = loadActiveInvestments;
+
+      window.manualPayout = async function(investmentId) {
+        if (!confirm(`Manually payout investment ID ${investmentId}? This will credit the user's wallet.`)) return;
+        try {
+          const res = await fetch(`${API_BASE}/admin/investments/${investmentId}/payout`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Payout failed');
+          alert(data.message);
+          loadActiveInvestments();
+          loadStats();
+        } catch (err) {
+          alert(err.message);
+        }
+      };
+
+      // ---------- Announcements ----------
+      window.handleAnnouncement = async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('postAnnBtn');
+        btn.disabled = true;
+        btn.textContent = 'Posting...';
+        const title = document.getElementById('annTitle').value.trim();
+        const message = document.getElementById('annMessage').value.trim();
+        try {
+          const res = await fetch(`${API_BASE}/admin/announcements`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, message })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Failed to post');
+          document.getElementById('announcementStatus').innerHTML = '<span class="text-green-600 font-bold">✅ Announcement posted successfully!</span>';
+          document.getElementById('announcementForm').reset();
+        } catch (err) {
+          document.getElementById('announcementStatus').innerHTML = `<span class="text-red-600 font-bold">❌ ${err.message}</span>`;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '📢 Post Announcement';
+        }
+      };
+
+      // ---------- Initial Load ----------
       document.addEventListener('DOMContentLoaded', function() {
-        displayAdminInfo();
-        loadUsers();
-        loadAdminPrograms();
+        // Load Overview tab by default
+        switchTab('overview');
       });
 
     })();
   </script>
-
 </body>
 </html>
