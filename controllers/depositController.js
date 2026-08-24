@@ -6,16 +6,19 @@ const crypto = require('crypto');
  */
 function formatUGPhoneNumber(phone) {
   let cleaned = phone.replace(/\D/g, '');
-  if (cleaned.startsWith('0')) {
-    cleaned = '256' + cleaned.substring(1);
-  } else if (cleaned.startsWith('7')) {
-    cleaned = '256' + cleaned;
+  // Remove leading '256' if present, then handle the rest
+  if (cleaned.startsWith('256')) {
+    cleaned = cleaned.substring(3);
   }
-  
-  if (!/^2567\d{8}$/.test(cleaned)) {
+  // If it starts with 0, remove it
+  if (cleaned.startsWith('0')) {
+    cleaned = cleaned.substring(1);
+  }
+  // Now it should be a 9-digit number starting with 7
+  if (!/^7\d{8}$/.test(cleaned)) {
     throw new Error('Invalid Ugandan phone number. Must be MTN or Airtel (e.g. 077... or 070...).');
   }
-  return cleaned;
+  return '256' + cleaned;
 }
 
 /**
@@ -98,6 +101,29 @@ exports.checkDepositStatus = async (req, res) => {
 };
 
 /**
+ * Helper: Extract and normalize phone number from SMS text
+ * Returns normalized string (e.g., "2567XXXXXXXX") or null if not found.
+ */
+function extractPhoneNumberFromSMS(text) {
+  // Remove all non-digit characters
+  const digits = text.replace(/\D/g, '');
+  // Look for patterns: 2567XXXXXXXX (12 digits) or 07XXXXXXXX (10 digits) or 7XXXXXXXX (9 digits)
+  let match = digits.match(/(?:256)?(0?)(7\d{8})/);
+  if (match) {
+    let raw = match[0];
+    // Ensure it starts with 256
+    if (!raw.startsWith('256')) {
+      raw = '256' + raw.replace(/^0?/, '');
+    }
+    // Validate length (12 digits)
+    if (raw.length === 12) {
+      return raw;
+    }
+  }
+  return null;
+}
+
+/**
  * Controller: Handle Incoming SMS Webhook from Android Forwarder App
  */
 exports.handleSMSWebhook = async (req, res) => {
@@ -137,26 +163,29 @@ exports.handleSMSWebhook = async (req, res) => {
     }
     const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
 
-    // 4. Extract sender phone number
-    const phoneMatch = smsBody.match(/(?:07\d{8}|2567\d{8})/);
-    if (!phoneMatch) {
+    // 4. Extract sender phone number using the improved helper
+    const phone = extractPhoneNumberFromSMS(smsBody);
+    if (!phone) {
       console.log('Action: Ignored. Reason: Could not parse phone number from SMS.');
       return;
     }
-    let phone = phoneMatch[0];
-    if (phone.startsWith('0')) {
-      phone = '256' + phone.substring(1);
-    }
+
+    // Log extracted values
+    console.log(`Extracted Phone: ${phone}, Amount: ${amount}`);
 
     connection = await db.getConnection();
     await connection.beginTransaction();
 
     // 5. Find matching pending deposit transaction
+    // Try both normalized (2567...) and local (0...) variants
+    const localPhone = '0' + phone.substring(3);
     const [transactions] = await connection.execute(
       `SELECT id, user_id, amount, status FROM transactions 
-       WHERE transaction_type = 'deposit' AND status = 'pending' AND (phone_number = ? OR phone_number = ?) AND amount = ? 
+       WHERE transaction_type = 'deposit' AND status = 'pending' 
+       AND (phone_number = ? OR phone_number = ?) 
+       AND amount = ? 
        ORDER BY created_at DESC LIMIT 1`,
-      [phone, '0' + phone.substring(3), amount]
+      [phone, localPhone, amount]
     );
 
     if (transactions.length === 0) {
@@ -173,7 +202,7 @@ exports.handleSMSWebhook = async (req, res) => {
       [tx.id]
     );
 
-    // 7. Automatically credit user's WALLET balance (✅ Correct table)
+    // 7. Automatically credit user's WALLET balance
     await connection.execute(
       `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [tx.amount, tx.user_id]
