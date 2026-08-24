@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - KISHAN INCOME</title>
+  
+  <!-- Fallback CSP to allow inline scripts & event handlers (in case server's CSP is not updated) -->
+  <meta http-equiv="Content-Security-Policy" 
+        content="default-src 'self' data: blob:; 
+                 script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: https://cdn.tailwindcss.com; 
+                 style-src 'self' 'unsafe-inline' https: http: https://cdn.tailwindcss.com; 
+                 img-src 'self' data: https: http:; 
+                 connect-src 'self' https: http: https://kishan-incomes.onrender.com; 
+                 font-src 'self' https: data:; 
+                 object-src 'none'; 
+                 script-src-attr 'unsafe-inline';">
+  
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .tab-active { border-bottom: 3px solid #059669; color: #065f46; }
@@ -205,7 +217,7 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 5: ANNOUNCEMENTS (UPDATED) ==================== -->
+    <!-- ==================== TAB 5: ANNOUNCEMENTS ==================== -->
     <div id="section-announcements" class="hidden space-y-6">
       <!-- Post Announcement Form -->
       <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
@@ -292,24 +304,64 @@
 
       // ---------- Configuration ----------
       const API_BASE = 'https://kishan-incomes.onrender.com/api';
-      const token = localStorage.getItem('kishan_token');
-      let cachedUsers = [];
-      let activeInvestments = [];
 
-      // ---------- Auth Check ----------
-      if (!token) {
-        alert('Please log in first.');
-        window.location.href = 'index.html';
-        return;
+      // ---------- Token Management ----------
+      function getToken() {
+        return localStorage.getItem('kishan_token');
       }
+
+      function isTokenValid() {
+        const token = getToken();
+        if (!token) return false;
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const expiry = payload.exp * 1000; // milliseconds
+          return Date.now() < expiry;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function redirectToLogin(message) {
+        if (message) alert(message);
+        localStorage.removeItem('kishan_token');
+        localStorage.removeItem('kishan_user');
+        window.location.href = 'index.html';
+      }
+
+      // Check token on load
+      if (!getToken() || !isTokenValid()) {
+        redirectToLogin('Your session has expired. Please log in again.');
+        return; // Stop further execution
+      }
+
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
       if (user.role !== 'admin') {
-        alert('Access denied. Admin privileges required.');
-        window.location.href = 'index.html';
+        redirectToLogin('Access denied. Admin privileges required.');
         return;
       }
 
       document.getElementById('adminDisplay').textContent = `👑 ${user.full_name}`;
+
+      // ---------- Helper for authenticated fetch ----------
+      async function fetchWithAuth(url, options = {}) {
+        const token = getToken();
+        if (!token || !isTokenValid()) {
+          redirectToLogin('Session expired. Please log in again.');
+          return; // Stop execution
+        }
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...options.headers
+        };
+        const response = await fetch(url, { ...options, headers });
+        if (response.status === 401 || response.status === 403) {
+          redirectToLogin('Your session has expired. Please log in again.');
+          return; // Stop execution
+        }
+        return response;
+      }
 
       // ---------- Tab Switching ----------
       window.switchTab = function(tabId) {
@@ -326,9 +378,7 @@
         if (tabId === 'programs') loadPrograms();
         if (tabId === 'investments') loadActiveInvestments();
         if (tabId === 'overview') loadStats();
-        if (tabId === 'announcements') {
-          loadAnnouncementsAdmin();
-        }
+        if (tabId === 'announcements') loadAnnouncementsAdmin();
       };
 
       // ---------- Logout ----------
@@ -341,10 +391,8 @@
       // ---------- Stats ----------
       async function loadStats() {
         try {
-          const res = await fetch(`${API_BASE}/admin/stats`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error('Failed to fetch stats');
+          const res = await fetchWithAuth(`${API_BASE}/admin/stats`);
+          if (!res) return;
           const data = await res.json();
           if (data.success) {
             const s = data.data;
@@ -366,10 +414,8 @@
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading members...</td></tr>';
         try {
-          const res = await fetch(`${API_BASE}/admin/users`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error('Failed to fetch users');
+          const res = await fetchWithAuth(`${API_BASE}/admin/users`);
+          if (!res) return;
           const data = await res.json();
           cachedUsers = data;
           renderUsers(cachedUsers);
@@ -377,6 +423,8 @@
           tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
         }
       }
+
+      let cachedUsers = [];
 
       function renderUsers(users) {
         const tbody = document.getElementById('usersTableBody');
@@ -424,12 +472,13 @@
         const newRole = currentRole === 'admin' ? 'member' : 'admin';
         if (!confirm(`Change user ID ${userId} role to ${newRole}?`)) return;
         try {
-          const res = await fetch(`${API_BASE}/admin/users/${userId}/role`, {
+          const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/role`, {
             method: 'PATCH',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: newRole })
           });
-          if (!res.ok) throw new Error('Failed to update role');
+          if (!res) return;
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Failed to update role');
           alert('Role updated!');
           loadUsers();
         } catch (err) {
@@ -465,9 +514,8 @@
         if (!confirm(`Confirm ${type} of UGX ${amount.toLocaleString()} for user ID ${currentUserId}?`)) return;
 
         try {
-          const res = await fetch(`${API_BASE}/admin/users/adjust-balance`, {
+          const res = await fetchWithAuth(`${API_BASE}/admin/users/adjust-balance`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               target_user_id: currentUserId,
               adjustment_type: type,
@@ -475,6 +523,7 @@
               reason: reason
             })
           });
+          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Adjustment failed');
           alert(data.message);
@@ -535,11 +584,11 @@
           description: document.getElementById('progDesc').value.trim() || null
         };
         try {
-          const res = await fetch(`${API_BASE}/admin/programs`, {
+          const res = await fetchWithAuth(`${API_BASE}/admin/programs`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
+          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Creation failed');
           alert('Program created successfully!');
@@ -557,10 +606,10 @@
       window.deleteProgram = async function(id) {
         if (!confirm(`Delete program ID ${id}?`)) return;
         try {
-          const res = await fetch(`${API_BASE}/admin/programs/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await fetchWithAuth(`${API_BASE}/admin/programs/${id}`, {
+            method: 'DELETE'
           });
+          if (!res) return;
           if (!res.ok) throw new Error('Deletion failed');
           alert('Program deleted.');
           loadPrograms();
@@ -574,18 +623,16 @@
         const tbody = document.getElementById('activeInvestmentsBody');
         tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Loading active investments...</td></tr>';
         try {
-          const res = await fetch(`${API_BASE}/admin/investments/active`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error('Failed to fetch active investments');
+          const res = await fetchWithAuth(`${API_BASE}/admin/investments/active`);
+          if (!res) return;
           const data = await res.json();
           if (!data.success) throw new Error(data.message || 'Unknown error');
-          activeInvestments = data.data || [];
-          if (activeInvestments.length === 0) {
+          const investments = data.data || [];
+          if (investments.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-400">No active investments.</td></tr>';
             return;
           }
-          tbody.innerHTML = activeInvestments.map(inv => `
+          tbody.innerHTML = investments.map(inv => `
             <tr class="hover:bg-gray-50">
               <td class="p-3">${inv.full_name} (${inv.phone_number})</td>
               <td class="p-3 font-semibold">${inv.program_title}</td>
@@ -610,10 +657,10 @@
       window.manualPayout = async function(investmentId) {
         if (!confirm(`Manually payout investment ID ${investmentId}? This will credit the user's wallet.`)) return;
         try {
-          const res = await fetch(`${API_BASE}/admin/investments/${investmentId}/payout`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await fetchWithAuth(`${API_BASE}/admin/investments/${investmentId}/payout`, {
+            method: 'POST'
           });
+          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Payout failed');
           alert(data.message);
@@ -629,10 +676,8 @@
         const tbody = document.getElementById('announcementsTableBody');
         tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Loading announcements...</td></tr>';
         try {
-          const res = await fetch(`${API_BASE}/admin/announcements`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error('Failed to fetch announcements');
+          const res = await fetchWithAuth(`${API_BASE}/admin/announcements`);
+          if (!res) return;
           const data = await res.json();
           if (data.success && data.data && data.data.length > 0) {
             tbody.innerHTML = data.data.map(a => `
@@ -659,10 +704,10 @@
       window.deleteAnnouncement = async function(id) {
         if (!confirm(`Delete announcement ID ${id}?`)) return;
         try {
-          const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await fetchWithAuth(`${API_BASE}/admin/announcements/${id}`, {
+            method: 'DELETE'
           });
+          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Deletion failed');
           alert('Announcement deleted.');
@@ -680,16 +725,16 @@
         const title = document.getElementById('annTitle').value.trim();
         const message = document.getElementById('annMessage').value.trim();
         try {
-          const res = await fetch(`${API_BASE}/admin/announcements`, {
+          const res = await fetchWithAuth(`${API_BASE}/admin/announcements`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, message })
           });
+          if (!res) return;
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Failed to post');
           document.getElementById('announcementStatus').innerHTML = '<span class="text-green-600 font-bold">✅ Announcement posted successfully!</span>';
           document.getElementById('announcementForm').reset();
-          loadAnnouncementsAdmin(); // Refresh the list
+          loadAnnouncementsAdmin();
         } catch (err) {
           document.getElementById('announcementStatus').innerHTML = `<span class="text-red-600 font-bold">❌ ${err.message}</span>`;
         } finally {

@@ -9,31 +9,39 @@ const app = express();
 
 // ===== SECURITY MIDDLEWARE =====
 
-// Custom Helmet CSP to allow Tailwind and inline scripts
+// Relax CSP to allow inline scripts, event handlers, and Tailwind
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"],
+        defaultSrc: ["'self'", "data:", "blob:"],
         scriptSrc: [
           "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https:",
+          "http:",
           "https://cdn.tailwindcss.com",
-          "'unsafe-inline'", // needed for inline scripts
         ],
+        scriptSrcAttr: ["'unsafe-inline'"], // allows onclick, onsubmit, etc.
         styleSrc: [
           "'self'",
+          "'unsafe-inline'",
+          "https:",
+          "http:",
           "https://cdn.tailwindcss.com",
-          "'unsafe-inline'", // needed for Tailwind styles
         ],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://kishan-incomes.onrender.com"],
+        imgSrc: ["'self'", "data:", "https:", "http:"],
+        connectSrc: ["'self'", "https:", "http:", "https://kishan-incomes.onrender.com"],
+        fontSrc: ["'self'", "https:", "data:"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
       },
     },
-    upgradeInsecureRequests: false,
   })
 );
 
-// Global rate limiter: 100 requests per 15 minutes per IP
+// Global rate limiter
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -42,7 +50,7 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// CORS – allow only your frontend domain
+// CORS – allow only your frontend
 const corsOptions = {
   origin: 'https://kishan-incomes.onrender.com',
   optionsSuccessStatus: 200,
