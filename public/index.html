@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kishan Incomes Sacco</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .announcement-item {
+      border-left: 4px solid #059669;
+    }
+  </style>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800 flex flex-col justify-between font-sans">
 
@@ -16,16 +21,9 @@
     </div>
     <div id="nav-user" class="hidden flex items-center gap-4">
       <nav class="flex items-center gap-3">
-        <a href="wallet.html" class="text-sm text-emerald-200 hover:text-white transition font-medium border-r border-emerald-600 pr-3">
-          💰 My Wallet
-        </a>
-        <a href="index.html" class="text-sm text-emerald-200 hover:text-white transition font-medium">
-          📊 Dashboard
-        </a>
-        <!-- Admin link (visible only for admins) -->
-        <a id="adminLink" href="admin.html" class="text-sm text-amber-300 hover:text-white transition font-medium hidden">
-          ⚙️ Admin
-        </a>
+        <a href="wallet.html" class="text-sm text-emerald-200 hover:text-white transition font-medium border-r border-emerald-600 pr-3">💰 My Wallet</a>
+        <a href="index.html" class="text-sm text-emerald-200 hover:text-white transition font-medium">📊 Dashboard</a>
+        <a id="adminLink" href="admin.html" class="text-sm text-amber-300 hover:text-white transition font-medium hidden">⚙️ Admin</a>
       </nav>
       <span id="user-display" class="font-medium text-sm bg-emerald-900 px-3 py-1 rounded-full border border-emerald-700"></span>
       <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-xs font-semibold transition">Logout</button>
@@ -93,7 +91,7 @@
             </p>
           </form>
 
-          <!-- REGISTRATION FORM -->
+          <!-- REGISTRATION FORM (WITH REFERRAL CODE) -->
           <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
             <div class="text-center mb-2">
               <h2 class="text-2xl font-bold text-gray-800">Create Account</h2>
@@ -129,6 +127,17 @@
                 id="regEmail" 
                 placeholder="member@example.com" 
                 class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none"
+              />
+            </div>
+
+            <!-- ✅ NEW: Referral Code Field -->
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Referral Code (Optional)</label>
+              <input 
+                type="text" 
+                id="regReferral" 
+                placeholder="KISHAN-XXXXXX" 
+                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-700 outline-none font-mono"
               />
             </div>
 
@@ -174,11 +183,23 @@
           <button onclick="openDepositModal()" class="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-5 py-3 rounded-xl shadow transition flex items-center justify-center gap-2">
             <span>+</span> Deposit
           </button>
-          <!-- ✅ NEW: Withdrawal Button on Dashboard -->
           <button onclick="openWithdrawalModal()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-5 py-3 rounded-xl shadow transition flex items-center justify-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             Withdraw
           </button>
+        </div>
+      </div>
+
+      <!-- ✅ NEW: Announcements Section -->
+      <div id="announcements-container" class="bg-white rounded-2xl shadow-md border border-gray-200 p-4 mb-6 hidden">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl">📢</span>
+          <div class="flex-1">
+            <h4 class="text-sm font-bold text-gray-700 mb-1">Latest Announcements</h4>
+            <div id="announcements-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+              <p class="text-sm text-gray-500">Loading announcements...</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -204,11 +225,9 @@
     </section>
   </main>
 
-  <!-- EMBEDDED INVESTMENT MODAL COMPONENT -->
+  <!-- EMBEDDED INVESTMENT MODAL -->
   <div id="investModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-      
-      <!-- Header -->
       <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
         <div>
           <h3 class="font-bold text-lg">Purchase Sacco Investment Shares</h3>
@@ -216,77 +235,35 @@
         </div>
         <button onclick="closeInvestModal()" class="text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
       </div>
-
-      <!-- Body -->
       <div class="p-6 space-y-4">
-        
         <div id="investAlert" class="hidden p-3 rounded-lg text-xs font-medium"></div>
-
         <form id="investForm" onsubmit="handleInvestSubmit(event)" class="space-y-4">
-          
-          <!-- Select Program -->
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Select Program</label>
             <select id="programSelect" onchange="calculateProjections()" class="w-full px-3 py-2.5 text-xs font-semibold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
               <option value="">Loading programs...</option>
             </select>
           </div>
-
-          <!-- Quantity Input -->
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Number of Shares</label>
-            <input 
-              type="number" 
-              id="shareQuantity" 
-              value="1" 
-              min="1" 
-              oninput="calculateProjections()" 
-              required 
-              class="w-full px-3 py-2.5 text-sm font-bold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
+            <input type="number" id="shareQuantity" value="1" min="1" oninput="calculateProjections()" required class="w-full px-3 py-2.5 text-sm font-bold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
           </div>
-
-          <!-- Live Projection Card -->
           <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2 text-xs">
-            <div class="flex justify-between text-gray-600">
-              <span>Price Per Share:</span>
-              <span id="projPrice" class="font-bold text-gray-800">UGX 0</span>
-            </div>
-            <div class="flex justify-between text-gray-600">
-              <span>Total Capital Required:</span>
-              <span id="projTotalCost" class="font-bold text-emerald-700">UGX 0</span>
-            </div>
-            <div class="flex justify-between text-gray-600">
-              <span>ROI Rate:</span>
-              <span id="projRoi" class="font-bold text-blue-600">+0%</span>
-            </div>
-            <div class="flex justify-between text-gray-600">
-              <span>Lock Duration:</span>
-              <span id="projDuration" class="font-bold text-gray-800">0 Days</span>
-            </div>
-            <div class="border-t border-gray-200 pt-2 flex justify-between text-sm font-extrabold text-gray-900">
-              <span>Expected Total Payout:</span>
-              <span id="projPayout" class="text-emerald-800">UGX 0</span>
-            </div>
+            <div class="flex justify-between text-gray-600"><span>Price Per Share:</span> <span id="projPrice" class="font-bold text-gray-800">UGX 0</span></div>
+            <div class="flex justify-between text-gray-600"><span>Total Capital Required:</span> <span id="projTotalCost" class="font-bold text-emerald-700">UGX 0</span></div>
+            <div class="flex justify-between text-gray-600"><span>ROI Rate:</span> <span id="projRoi" class="font-bold text-blue-600">+0%</span></div>
+            <div class="flex justify-between text-gray-600"><span>Lock Duration:</span> <span id="projDuration" class="font-bold text-gray-800">0 Days</span></div>
+            <div class="border-t border-gray-200 pt-2 flex justify-between text-sm font-extrabold text-gray-900"><span>Expected Total Payout:</span> <span id="projPayout" class="text-emerald-800">UGX 0</span></div>
           </div>
-
-          <!-- Submit Button -->
-          <button 
-            type="submit" 
-            id="buySharesBtn"
-            class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg">
-            Confirm & Pay From Wallet
-          </button>
+          <button type="submit" id="buySharesBtn" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg">Confirm & Pay From Wallet</button>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- EMBEDDED MOBILE MONEY DEPOSIT MODAL -->
+  <!-- DEPOSIT MODAL -->
   <div id="depositModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-      
-      <!-- Header -->
       <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
         <div>
           <h3 class="font-bold text-lg">Deposit via Mobile Money</h3>
@@ -294,20 +271,16 @@
         </div>
         <button onclick="closeDepositModal()" class="text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
       </div>
-
-      <!-- Body -->
       <div class="p-6 space-y-4">
         <form id="depositForm" onsubmit="handleDeposit(event)" class="space-y-4">
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Amount (UGX):</label>
             <input type="number" id="depositAmount" min="500" required placeholder="5000" class="w-full px-3 py-2.5 text-sm font-bold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
           </div>
-          
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Phone Number:</label>
             <input type="text" id="depositPhone" placeholder="077XXXXXXXX or 070XXXXXXXX" required class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-mono">
           </div>
-          
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Network Provider:</label>
             <select id="depositNetwork" class="w-full px-3 py-2.5 text-sm font-semibold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
@@ -315,32 +288,24 @@
               <option value="AIRTEL">Airtel Uganda</option>
             </select>
           </div>
-          
           <button type="submit" id="depositSubmitBtn" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg cursor-pointer">Send STK Push / Initiate</button>
           <button type="button" onclick="closeDepositModal()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">Cancel</button>
         </form>
 
-        <!-- Pending Merchant Payment Instructions Box -->
         <div id="depositInfoBox" class="hidden py-4 space-y-4">
           <div class="bg-amber-50 border border-amber-300 p-4 rounded-xl space-y-3">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-2">
-                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse"></span>
-                Status: Pending Payment
+                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse"></span> Status: Pending Payment
               </span>
               <span class="text-[11px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded">Airtel Merchant</span>
             </div>
-            
-            <p class="text-xs text-amber-900 leading-relaxed">
-              Please complete payment to <strong>Airtel Merchant Code: 7183127 (Kishan Incomes Ltd)</strong>.
-            </p>
-
+            <p class="text-xs text-amber-900 leading-relaxed">Please complete payment to <strong>Airtel Merchant Code: 7183127 (Kishan Incomes Ltd)</strong>.</p>
             <div class="bg-white p-3 rounded-xl border border-amber-200 text-center space-y-1">
               <p class="text-[11px] text-gray-500 font-bold uppercase">Merchant Code</p>
               <p class="text-2xl font-extrabold text-emerald-800 tracking-wider font-mono">7183127</p>
               <p class="text-xs font-semibold text-gray-700">Kishan Incomes Ltd</p>
             </div>
-
             <div class="bg-amber-100/60 p-2.5 rounded-lg text-[11px] text-amber-900 space-y-1">
               <p class="font-bold">How to pay:</p>
               <ol class="list-decimal list-inside space-y-0.5 text-gray-700">
@@ -350,27 +315,19 @@
                 <li>Enter Amount & your PIN to authorize</li>
               </ol>
             </div>
-
-            <div class="text-center text-[11px] text-gray-500 pt-1">
-              Reference: <span id="depositRefText" class="font-mono font-bold text-gray-800"></span>
-            </div>
+            <div class="text-center text-[11px] text-gray-500 pt-1">Reference: <span id="depositRefText" class="font-mono font-bold text-gray-800"></span></div>
           </div>
-          
           <p class="text-center text-xs text-gray-500 animate-pulse">Awaiting payment confirmation...</p>
-          <button type="button" onclick="resetDepositForm()" class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">
-              Cancel & Go Back
-          </button>
+          <button type="button" onclick="resetDepositForm()" class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">Cancel & Go Back</button>
         </div>
-
         <p id="depositStatus" class="text-center text-xs font-medium mt-2"></p>
       </div>
     </div>
   </div>
 
-  <!-- ✅ NEW: WITHDRAWAL MODAL -->
+  <!-- WITHDRAWAL MODAL -->
   <div id="withdrawalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
-      
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
       <div class="bg-amber-900 text-white px-6 py-4 flex justify-between items-center">
         <div>
           <h3 class="font-bold text-lg">Request Wallet Withdrawal</h3>
@@ -378,15 +335,12 @@
         </div>
         <button onclick="closeWithdrawalModal()" class="text-amber-200 hover:text-white text-xl font-bold">&times;</button>
       </div>
-
       <div class="p-6 space-y-5">
         <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex justify-between items-center">
           <span class="text-xs text-emerald-800 font-medium">Available Balance:</span>
           <span id="modalWithdrawBalance" class="text-sm font-extrabold text-emerald-900">UGX 0</span>
         </div>
-
         <div id="withdrawalAlert" class="hidden p-3 rounded-lg text-xs font-medium"></div>
-
         <form id="withdrawalForm" onsubmit="handleWithdrawSubmit(event)" class="space-y-4">
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Payout Network</label>
@@ -407,31 +361,16 @@
               </label>
             </div>
           </div>
-
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Receiving Mobile Number</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs">+256</span>
-              <input 
-                type="tel" 
-                id="withdrawPhone" 
-                placeholder="770000000" 
-                required
-                class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-mono"
-              />
+              <input type="tel" id="withdrawPhone" placeholder="770000000" required class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-mono">
             </div>
           </div>
-
           <div>
             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Amount to Withdraw (UGX)</label>
-            <input 
-              type="number" 
-              id="withdrawAmount" 
-              placeholder="e.g. 20000" 
-              min="1000" 
-              required
-              class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold"
-            />
+            <input type="number" id="withdrawAmount" placeholder="e.g. 20000" min="1000" required class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold">
             <div class="flex gap-2 mt-2">
               <button type="button" onclick="setWithdrawQuickAmount(5000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">5k</button>
               <button type="button" onclick="setWithdrawQuickAmount(10000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">10k</button>
@@ -439,20 +378,13 @@
               <button type="button" onclick="setWithdrawMaxAmount()" class="text-[11px] bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md font-bold text-amber-800">Withdraw All</button>
             </div>
           </div>
-
-          <button 
-            type="submit" 
-            id="submitWithdrawBtn"
-            class="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
-            <span>Confirm Withdrawal Request</span>
-          </button>
+          <button type="submit" id="submitWithdrawBtn" class="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">Confirm Withdrawal Request</button>
         </form>
-
       </div>
     </div>
   </div>
 
-  <!-- MAIN SCRIPT BLOCK -->
+  <!-- MAIN SCRIPT -->
   <script>
     const RENDER_HOST = 'https://kishan-incomes.onrender.com';
     const API_BASE = `${RENDER_HOST}/api`;
@@ -507,7 +439,7 @@
       document.getElementById('authAlert').classList.add('hidden');
     }
 
-    // ✅ NEW: Fetch current wallet balance
+    // Fetch current wallet balance
     async function fetchBalance() {
       try {
         const token = localStorage.getItem('kishan_token');
@@ -518,13 +450,9 @@
         const data = await res.json();
         if (data.success && data.user) {
           currentBalance = Number(data.user.balance) || 0;
-          document.getElementById('userWalletBalance').innerText =
-            `UGX ${currentBalance.toLocaleString()}`;
-          // Update withdrawal modal balance too
+          document.getElementById('userWalletBalance').innerText = `UGX ${currentBalance.toLocaleString()}`;
           const modalBalance = document.getElementById('modalWithdrawBalance');
-          if (modalBalance) {
-            modalBalance.innerText = `UGX ${currentBalance.toLocaleString()}`;
-          }
+          if (modalBalance) modalBalance.innerText = `UGX ${currentBalance.toLocaleString()}`;
         }
       } catch (err) {
         console.error('Error fetching balance:', err);
@@ -573,7 +501,7 @@
       }
     }
 
-    // Handle Member Registration
+    // Handle Member Registration (UPDATED WITH REFERRAL CODE)
     async function handleRegister(e) {
       e.preventDefault();
       hideAlert();
@@ -586,6 +514,7 @@
       const phone_number = document.getElementById('regPhone').value.trim();
       const email = document.getElementById('regEmail') ? document.getElementById('regEmail').value.trim() : '';
       const password = document.getElementById('regPassword').value;
+      const referral_code = document.getElementById('regReferral') ? document.getElementById('regReferral').value.trim().toUpperCase() : '';
 
       try {
         const res = await fetch(`${API_BASE}/auth/register`, {
@@ -596,7 +525,8 @@
             full_names: full_name, 
             phone_number: phone_number, 
             email: email, 
-            password: password 
+            password: password,
+            referral_code: referral_code
           })
         });
         
@@ -628,13 +558,13 @@
       document.getElementById('nav-user').classList.remove('hidden');
       document.getElementById('user-display').textContent = user.full_name;
       
-      // Show admin link if user is admin
       if (user.role === 'admin') {
         document.getElementById('adminLink').classList.remove('hidden');
       }
 
       loadPrograms();
-      fetchBalance(); // ✅ Load balance on login
+      fetchBalance();
+      loadAnnouncements(); // ✅ load announcements
     }
 
     // Logout Member
@@ -644,7 +574,7 @@
       location.reload();
     }
 
-    // ========== DEPOSIT FUNCTIONS ==========
+    // ===== DEPOSIT FUNCTIONS =====
     function openDepositModal() {
       document.getElementById('depositModal').classList.remove('hidden');
       resetDepositForm();
@@ -741,17 +671,11 @@
       }, 3000);
     }
 
-    // ========== ✅ NEW: WITHDRAWAL FUNCTIONS ==========
+    // ===== WITHDRAWAL FUNCTIONS =====
     function openWithdrawalModal() {
-      const modal = document.getElementById('withdrawalModal');
-      modal.classList.remove('hidden');
+      document.getElementById('withdrawalModal').classList.remove('hidden');
       showWithdrawAlert('', 'hidden');
-
-      // Update balance in modal
-      document.getElementById('modalWithdrawBalance').innerText = 
-        document.getElementById('userWalletBalance').innerText;
-
-      // Pre-fill phone number from user data
+      document.getElementById('modalWithdrawBalance').innerText = document.getElementById('userWalletBalance').innerText;
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
       if (user.phone_number) {
         let rawPhone = user.phone_number.replace(/^256/, '');
@@ -826,7 +750,7 @@
       }
     }
 
-    // ========== INVESTMENT FUNCTIONS ==========
+    // ===== INVESTMENT FUNCTIONS =====
     async function openInvestModal() {
       document.getElementById('investModal').classList.remove('hidden');
       showInvestAlert('', 'hidden');
@@ -937,7 +861,7 @@
       }
     }
 
-    // Dashboard Program Cards Loader
+    // ===== LOAD PROGRAMS =====
     async function loadPrograms() {
       const grid = document.getElementById('programs-grid');
       grid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">Loading available programs...</p>';
@@ -985,6 +909,37 @@
         grid.innerHTML = '<p class="col-span-full text-center text-red-500 py-8">Failed to load investment programs.</p>';
       }
     }
+
+    // ===== ANNOUNCEMENTS (NEW) =====
+    async function loadAnnouncements() {
+      const container = document.getElementById('announcements-container');
+      const list = document.getElementById('announcements-list');
+      try {
+        const token = localStorage.getItem('kishan_token');
+        const res = await fetch(`${API_BASE}/admin/announcements`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch announcements');
+        const data = await res.json();
+        if (data.success && data.data && data.data.length > 0) {
+          container.classList.remove('hidden');
+          list.innerHTML = data.data.map(a => `
+            <div class="announcement-item pl-3 py-1">
+              <p class="text-sm font-semibold text-gray-800">${a.title}</p>
+              <p class="text-xs text-gray-600">${a.message}</p>
+              <p class="text-[10px] text-gray-400 mt-0.5">${new Date(a.created_at).toLocaleDateString()}</p>
+            </div>
+          `).join('');
+        } else {
+          container.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error('Announcements error:', err);
+        container.classList.add('hidden');
+      }
+    }
+
   </script>
+
 </body>
 </html>

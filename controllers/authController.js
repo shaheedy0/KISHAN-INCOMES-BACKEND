@@ -7,6 +7,7 @@ exports.register = async (req, res) => {
     const full_name = (req.body.full_names || req.body.full_name || '').trim();
     const phone_number = (req.body.phone_number || '').trim();
     const password = req.body.password || '';
+    const referral_code = (req.body.referral_code || '').trim().toUpperCase();
 
     if (!full_name || !phone_number || !password) {
       return res.status(400).json({
@@ -24,20 +25,37 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 2. Hash password & generate unique referral code
+    // 2. Hash password & generate unique referral code for the new user
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    const userReferralCode = 'KISHAN-' + Math.floor(100000 + Math.random() * 900000);
+    const newUserReferralCode = 'KISHAN-' + Math.floor(100000 + Math.random() * 900000);
 
-    // 3. Insert user record (without balance column)
+    // 3. Validate referral code if provided
+    let referred_by = null;
+    if (referral_code) {
+      const [referrer] = await db.execute(
+        'SELECT id FROM users WHERE referral_code = ?',
+        [referral_code]
+      );
+      if (referrer.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'The referral code you entered is invalid. Please check and try again.'
+        });
+      }
+      referred_by = referral_code; // store the referrer's referral code
+    }
+
+    // 4. Insert user record
     const [result] = await db.execute(
-      `INSERT INTO users (full_name, phone_number, password_hash, referral_code) VALUES (?, ?, ?, ?)`,
-      [full_name, phone_number, passwordHash, userReferralCode]
+      `INSERT INTO users (full_name, phone_number, password_hash, referral_code, referred_by) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [full_name, phone_number, passwordHash, newUserReferralCode, referred_by]
     );
 
     const userId = result.insertId;
 
-    // 4. Create wallet record
+    // 5. Create wallet record
     if (userId) {
       try {
         await db.execute('INSERT INTO wallets (user_id, balance, bonus_balance) VALUES (?, 0.00, 0.00)', [userId]);
@@ -49,7 +67,7 @@ exports.register = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Account created successfully!',
-      referral_code: userReferralCode
+      referral_code: newUserReferralCode
     });
 
   } catch (error) {
@@ -71,7 +89,6 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
-    // Fetch user's wallet balance from the wallets table
     const [wallets] = await db.execute('SELECT balance, bonus_balance FROM wallets WHERE user_id = ?', [user.id]);
     const balance = wallets.length > 0 ? wallets[0].balance : 0.00;
     const bonus_balance = wallets.length > 0 ? wallets[0].bonus_balance : 0.00;
@@ -82,7 +99,6 @@ exports.login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // Return role and balance back to the frontend
     return res.json({ 
       success: true, 
       token, 
@@ -101,7 +117,6 @@ exports.login = async (req, res) => {
   }
 };
 
-// ✅ Get current user profile with wallet balances
 exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
