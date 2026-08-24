@@ -3,8 +3,17 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { register, login, getProfile } = require('../controllers/authController');
 const { verifyToken } = require('../middleware/authMiddleware');
+const rateLimit = require('express-rate-limit');
 
-// Flexibly validate phone numbers (accepts 07... or 256...)
+// Stricter rate limiter for login (5 failed attempts per 15 min)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true, // only count failures
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+
 const phoneRegex = /^(?:256|0)[7][0-9]{8}$/;
 
 const registerRules = [
@@ -36,7 +45,7 @@ const validate = (req, res, next) => {
 };
 
 router.post('/register', registerRules, validate, register);
-router.post('/login', login);
-router.get('/me', verifyToken, getProfile);  // ✅ NEW
+router.post('/login', loginLimiter, login);
+router.get('/me', verifyToken, getProfile);
 
 module.exports = router;

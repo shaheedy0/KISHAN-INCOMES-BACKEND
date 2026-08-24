@@ -16,7 +16,6 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 1. Check for duplicate phone number
     const [existing] = await db.execute('SELECT id FROM users WHERE phone_number = ?', [phone_number]);
     if (existing.length > 0) {
       return res.status(400).json({
@@ -25,12 +24,10 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 2. Hash password & generate unique referral code for the new user
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     const newUserReferralCode = 'KISHAN-' + Math.floor(100000 + Math.random() * 900000);
 
-    // 3. Validate referral code if provided
     let referred_by = null;
     if (referral_code) {
       const [referrer] = await db.execute(
@@ -43,10 +40,9 @@ exports.register = async (req, res) => {
           message: 'The referral code you entered is invalid. Please check and try again.'
         });
       }
-      referred_by = referral_code; // store the referrer's referral code
+      referred_by = referral_code;
     }
 
-    // 4. Insert user record
     const [result] = await db.execute(
       `INSERT INTO users (full_name, phone_number, password_hash, referral_code, referred_by) 
        VALUES (?, ?, ?, ?, ?)`,
@@ -55,7 +51,6 @@ exports.register = async (req, res) => {
 
     const userId = result.insertId;
 
-    // 5. Create wallet record
     if (userId) {
       try {
         await db.execute('INSERT INTO wallets (user_id, balance, bonus_balance) VALUES (?, 0.00, 0.00)', [userId]);
@@ -93,24 +88,25 @@ exports.login = async (req, res) => {
     const balance = wallets.length > 0 ? wallets[0].balance : 0.00;
     const bonus_balance = wallets.length > 0 ? wallets[0].bonus_balance : 0.00;
 
+    // ✅ Use strong secret from .env, shorter expiry (1 hour)
     const token = jwt.sign(
       { id: user.id, role: user.role, phone: user.phone_number },
-      process.env.JWT_SECRET || 'fallback_secret',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
     );
 
-    return res.json({ 
-      success: true, 
-      token, 
-      user: { 
-        id: user.id, 
-        full_name: user.full_name, 
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
         phone_number: user.phone_number,
         role: user.role,
         balance: balance,
         bonus_balance: bonus_balance,
         referral_code: user.referral_code
-      } 
+      }
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

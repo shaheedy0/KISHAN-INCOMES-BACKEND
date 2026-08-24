@@ -1,20 +1,39 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// ===== SECURITY MIDDLEWARE =====
+// Helmet sets secure HTTP headers
+app.use(helmet());
+
+// Global rate limiter: 100 requests per 15 minutes per IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
+
+// Restrict CORS to your frontend domain only
+const corsOptions = {
+  origin: 'https://kishan-incomes.onrender.com', // your frontend URL
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
+// ===== STANDARD MIDDLEWARE =====
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Helper function to safely load routes/modules without stopping the server
+// Helper function to safely load routes
 function loadModule(modulePath) {
   try {
     return require(modulePath);
@@ -24,7 +43,7 @@ function loadModule(modulePath) {
   }
 }
 
-// Load API Routes Safely
+// Load API Routes
 const authRoutes = loadModule('./routes/authRoutes');
 const depositRoutes = loadModule('./routes/depositRoutes');
 const withdrawalRoutes = loadModule('./routes/withdrawalRoutes');
@@ -39,29 +58,24 @@ if (investmentRoutes) app.use('/api/investments', investmentRoutes);
 if (adminRoutes) app.use('/api/admin', adminRoutes);
 if (programRoutes) app.use('/api/programs', programRoutes);
 
-// API status & health check endpoint
+// Health check
 app.get('/api', (req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'Kishan Income API is live and operational.'
   });
 });
-
 app.get('/api/health', (req, res) => {
   res.send('Kishan Incomes API is running...');
 });
 
-// Fallback to send index.html for root and frontend requests
+// Frontend fallback
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-// Optional: redirect /wallet to wallet.html
 app.get('/wallet', (req, res) => {
   res.redirect('/wallet.html');
 });
-
-// Optional: redirect /admin to admin.html
 app.get('/admin', (req, res) => {
   res.redirect('/admin.html');
 });
