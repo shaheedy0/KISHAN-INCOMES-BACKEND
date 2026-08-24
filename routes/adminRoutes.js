@@ -68,6 +68,7 @@ router.post('/programs', async (req, res) => {
   }
 });
 
+// ✅ FIXED: Hard-delete program (no status update)
 router.delete('/programs/:id', async (req, res) => {
   const programId = req.params.id;
   let connection;
@@ -75,6 +76,7 @@ router.delete('/programs/:id', async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
+    // Check if any active investments reference this program
     const [investments] = await connection.execute(
       'SELECT COUNT(*) AS count FROM user_investments WHERE program_id = ? AND status = "active"',
       [programId]
@@ -88,13 +90,14 @@ router.delete('/programs/:id', async (req, res) => {
       });
     }
 
+    // Hard delete the program
     await connection.execute(
-      'UPDATE investment_programs SET status = "inactive" WHERE id = ?',
+      'DELETE FROM investment_programs WHERE id = ?',
       [programId]
     );
 
     await connection.commit();
-    res.json({ success: true, message: 'Program deleted successfully (marked as inactive).' });
+    res.json({ success: true, message: 'Program deleted successfully.' });
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('Admin Program Deletion Error:', error);
@@ -113,7 +116,7 @@ router.post('/users/adjust-balance', adminController.adjustUserBalance);
 
 // Announcements (admin management)
 router.post('/announcements', adminController.postAnnouncement);
-router.get('/admin/announcements', adminController.getAnnouncements); // Admin version (though same as public)
+router.get('/admin/announcements', adminController.getAnnouncements);
 router.delete('/announcements/:id', adminController.deleteAnnouncement);
 
 // Stats
