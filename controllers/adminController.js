@@ -1,5 +1,6 @@
 const db = require('../config/db');
-const { executeB2CPayoutAPI } = require('./withdrawalController'); // ✅ FIXED: import B2C helper
+const { executeB2CPayoutAPI } = require('./withdrawalController');
+const { processReferralBonus } = require('./webhookController'); // ✅ Import referral bonus helper
 
 // ---------- Existing functions ----------
 exports.getAllActiveInvestments = async (req, res) => {
@@ -254,7 +255,7 @@ exports.getStats = async (req, res) => {
   }
 };
 
-// ===== NEW: Pending Transactions Management =====
+// ===== Pending Transactions Management =====
 exports.getPendingTransactions = async (req, res) => {
   try {
     const [rows] = await db.execute(
@@ -289,15 +290,20 @@ exports.approveDeposit = async (req, res) => {
 
     const tx = txRows[0];
 
+    // Credit wallet
     await connection.execute(
       `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [tx.amount, tx.user_id]
     );
 
+    // Update transaction status
     await connection.execute(
       `UPDATE transactions SET status = 'completed', external_ref = ? WHERE id = ?`,
       [`Admin approved ${new Date().toISOString()}`, id]
     );
+
+    // ✅ Award referral bonus if this is the user's first deposit
+    await processReferralBonus(connection, tx.user_id, tx.amount);
 
     await connection.commit();
     res.json({ success: true, message: 'Deposit approved and credited.' });
