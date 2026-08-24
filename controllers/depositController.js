@@ -6,19 +6,19 @@ const crypto = require('crypto');
  */
 function formatUGPhoneNumber(phone) {
   let cleaned = phone.replace(/\D/g, '');
-  // Remove leading '256' if present, then handle the rest
-  if (cleaned.startsWith('256')) {
-    cleaned = cleaned.substring(3);
-  }
-  // If it starts with 0, remove it
   if (cleaned.startsWith('0')) {
-    cleaned = cleaned.substring(1);
-  }
-  // Now it should be a 9-digit number starting with 7
-  if (!/^7\d{8}$/.test(cleaned)) {
+    cleaned = '256' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7')) {
+    cleaned = '256' + cleaned;
+  } else if (cleaned.startsWith('256')) {
+    // already in correct format
+  } else {
     throw new Error('Invalid Ugandan phone number. Must be MTN or Airtel (e.g. 077... or 070...).');
   }
-  return '256' + cleaned;
+  if (!/^2567\d{8}$/.test(cleaned)) {
+    throw new Error('Invalid Ugandan phone number. Must be MTN or Airtel (e.g. 077... or 070...).');
+  }
+  return cleaned;
 }
 
 /**
@@ -101,23 +101,40 @@ exports.checkDepositStatus = async (req, res) => {
 };
 
 /**
- * Helper: Extract and normalize phone number from SMS text
+ * Helper: Extract and normalize Ugandan phone number from SMS text.
  * Returns normalized string (e.g., "2567XXXXXXXX") or null if not found.
  */
 function extractPhoneNumberFromSMS(text) {
-  // Remove all non-digit characters
-  const digits = text.replace(/\D/g, '');
-  // Look for patterns: 2567XXXXXXXX (12 digits) or 07XXXXXXXX (10 digits) or 7XXXXXXXX (9 digits)
-  let match = digits.match(/(?:256)?(0?)(7\d{8})/);
-  if (match) {
-    let raw = match[0];
-    // Ensure it starts with 256
-    if (!raw.startsWith('256')) {
-      raw = '256' + raw.replace(/^0?/, '');
+  // First, try to find the number after the word "from" (most reliable for this SMS format)
+  const fromMatch = text.match(/from\s*([+\d\s]+)/i);
+  if (fromMatch) {
+    let candidate = fromMatch[1].replace(/\s/g, '');
+    let cleaned = candidate.replace(/\D/g, '');
+    if (cleaned.length >= 9 && cleaned.length <= 13) {
+      // Normalize
+      if (!cleaned.startsWith('256')) {
+        if (cleaned.startsWith('0')) {
+          cleaned = '256' + cleaned.substring(1);
+        } else if (cleaned.startsWith('7')) {
+          cleaned = '256' + cleaned;
+        }
+      }
+      if (cleaned.length === 12 && /^2567\d{8}$/.test(cleaned)) {
+        return cleaned;
+      }
     }
-    // Validate length (12 digits)
-    if (raw.length === 12) {
-      return raw;
+  }
+
+  // Fallback: extract all digits and search for a 9-digit number starting with 7
+  const digits = text.replace(/\D/g, '');
+  const matches = digits.match(/7\d{8}/g);
+  if (matches && matches.length > 0) {
+    // Take the first occurrence (skip numbers like TID that might contain '7')
+    for (const raw of matches) {
+      const normalized = '256' + raw;
+      if (/^2567\d{8}$/.test(normalized)) {
+        return normalized;
+      }
     }
   }
   return null;
