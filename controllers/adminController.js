@@ -1,9 +1,5 @@
 const db = require('../config/db');
 
-/**
- * View all active member investments system-wide
- * Route: GET /api/admin/investments/active
- */
 exports.getAllActiveInvestments = async (req, res) => {
   try {
     const [investments] = await db.execute(
@@ -38,10 +34,6 @@ exports.getAllActiveInvestments = async (req, res) => {
   }
 };
 
-/**
- * Manually trigger maturity payout for a specific investment
- * Route: POST /api/admin/investments/:id/payout
- */
 exports.forceMaturityPayout = async (req, res) => {
   let connection;
   const investmentId = req.params.id;
@@ -51,7 +43,6 @@ exports.forceMaturityPayout = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. Lock investment record for update
     const [invRows] = await connection.execute(
       `SELECT ui.id, ui.user_id, ui.expected_payout, ui.status, p.title 
        FROM user_investments ui
@@ -77,19 +68,17 @@ exports.forceMaturityPayout = async (req, res) => {
 
     const payoutAmount = parseFloat(inv.expected_payout);
 
-    // 2. Credit principal + ROI to user balance
+    // ✅ Credit to wallets instead of users
     await connection.execute(
-      `UPDATE users SET balance = balance + ? WHERE id = ?`,
+      `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [payoutAmount, inv.user_id]
     );
 
-    // 3. Mark investment as matured
     await connection.execute(
       `UPDATE user_investments SET status = 'matured' WHERE id = ?`,
       [investmentId]
     );
 
-    // 4. Log transaction audit trail
     const ref = `ADM-PAYOUT-${investmentId}-${Date.now()}`;
     await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status, external_ref) 
@@ -116,10 +105,6 @@ exports.forceMaturityPayout = async (req, res) => {
   }
 };
 
-/**
- * Manually adjust a member's wallet balance (Credit or Debit)
- * Route: POST /api/admin/users/adjust-balance
- */
 exports.adjustUserBalance = async (req, res) => {
   let connection;
 
@@ -127,7 +112,6 @@ exports.adjustUserBalance = async (req, res) => {
     const adminId = req.user.id;
     const { target_user_id, adjustment_type, amount, reason } = req.body;
 
-    // 1. Validation
     if (!target_user_id || !adjustment_type || !amount || !reason) {
       return res.status(400).json({ 
         success: false, 
@@ -147,18 +131,18 @@ exports.adjustUserBalance = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 2. Lock target user row
-    const [userRows] = await connection.execute(
-      `SELECT id, balance, full_name FROM users WHERE id = ? FOR UPDATE`,
+    // ✅ Lock wallet row instead of users
+    const [walletRows] = await connection.execute(
+      `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [target_user_id]
     );
 
-    if (userRows.length === 0) {
+    if (walletRows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ success: false, message: 'Target member user account not found.' });
+      return res.status(404).json({ success: false, message: 'Target member wallet not found.' });
     }
 
-    const currentBalance = parseFloat(userRows[0].balance);
+    const currentBalance = parseFloat(walletRows[0].balance);
     const isCredit = adjustment_type.toLowerCase() === 'credit';
     
     if (!isCredit && currentBalance < adjustAmount) {
@@ -169,15 +153,13 @@ exports.adjustUserBalance = async (req, res) => {
       });
     }
 
-    // 3. Apply balance adjustment
     const updatedBalance = isCredit ? (currentBalance + adjustAmount) : (currentBalance - adjustAmount);
 
     await connection.execute(
-      `UPDATE users SET balance = ? WHERE id = ?`,
+      `UPDATE wallets SET balance = ? WHERE user_id = ?`,
       [updatedBalance, target_user_id]
     );
 
-    // 4. Record audit log transaction
     const txType = isCredit ? 'deposit' : 'withdrawal';
     const ref = `ADM-ADJ-${Date.now()}`;
     await connection.execute(
@@ -190,7 +172,7 @@ exports.adjustUserBalance = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Successfully ${isCredit ? 'credited' : 'debited'} UGX ${adjustAmount.toLocaleString()} ${isCredit ? 'to' : 'from'} ${userRows[0].full_name}.`,
+      message: `Successfully ${isCredit ? 'credited' : 'debited'} UGX ${adjustAmount.toLocaleString()} ${isCredit ? 'to' : 'from'} user #${target_user_id}.`,
       previousBalance: currentBalance,
       newBalance: updatedBalance
     });
@@ -204,10 +186,6 @@ exports.adjustUserBalance = async (req, res) => {
   }
 };
 
-/**
- * Create a System Announcement for Members
- * Route: POST /api/admin/announcements
- */
 exports.postAnnouncement = async (req, res) => {
   const { title, message } = req.body;
 

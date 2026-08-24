@@ -92,9 +92,9 @@
       </div>
     </div>
 
-    <!-- Section 3: Active Locked Investments Table/List -->
+    <!-- Section 3: Active Locked Investments Table/List (Enhanced) -->
     <section class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center flex-wrap gap-2">
         <div>
           <h2 class="text-lg font-bold text-gray-800">Locked Sacco Investments</h2>
           <p class="text-xs text-gray-500">Active programs growing at specified interest rates until maturity date.</p>
@@ -110,26 +110,28 @@
             <tr>
               <th class="p-4">Program</th>
               <th class="p-4">Shares & Invested</th>
-              <th class="p-4">Rate (ROI)</th>
+              <th class="p-4">ROI</th>
+              <th class="p-4">Daily Earnings</th>
+              <th class="p-4">Current Earnings</th>
               <th class="p-4">Expected Payout</th>
+              <th class="p-4">Progress</th>
               <th class="p-4">Maturity Date</th>
-              <th class="p-4">Time Remaining</th>
               <th class="p-4 text-center">Status</th>
             </tr>
           </thead>
           <tbody id="investments-table-body" class="divide-y divide-gray-100">
             <tr>
-              <td colspan="7" class="p-8 text-center text-gray-400">Loading wallet records...</td>
+              <td colspan="9" class="p-8 text-center text-gray-400">Loading wallet records...</td>
             </tr>
           </tbody>
         </table>
       </div>
     </section>
 
+    <!-- ... Modals remain unchanged ... -->
     <!-- Mobile Money Deposit Modal -->
     <div id="depositModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
-        
         <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
           <div>
             <h3 class="font-bold text-lg">Mobile Money Deposit</h3>
@@ -137,10 +139,8 @@
           </div>
           <button onclick="closeDepositModal()" class="text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
         </div>
-
         <div class="p-6 space-y-5">
           <div id="modalAlert" class="hidden p-3 rounded-lg text-xs font-medium"></div>
-
           <form id="stkDepositForm" onsubmit="handleSTKSubmit(event)" class="space-y-4">
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Select Network</label>
@@ -161,32 +161,17 @@
                 </label>
               </div>
             </div>
-
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Mobile Phone Number</label>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs">+256</span>
-                <input 
-                  type="tel" 
-                  id="depositPhone" 
-                  placeholder="770000000" 
-                  required
-                  class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono"
-                />
+                <input type="tel" id="depositPhone" placeholder="770000000" required class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono">
               </div>
               <p class="text-[11px] text-gray-400 mt-1">Accepts standard numbers e.g. 0779158770 or 779158770</p>
             </div>
-
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Deposit Amount (UGX)</label>
-              <input 
-                type="number" 
-                id="depositAmount" 
-                placeholder="e.g. 50000" 
-                min="500" 
-                required
-                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold"
-              />
+              <input type="number" id="depositAmount" placeholder="e.g. 50000" min="500" required class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold">
               <div class="flex gap-2 mt-2">
                 <button type="button" onclick="setQuickAmount(10000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">10k</button>
                 <button type="button" onclick="setQuickAmount(50000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">50k</button>
@@ -194,15 +179,10 @@
                 <button type="button" onclick="setQuickAmount(500000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">500k</button>
               </div>
             </div>
-
-            <button 
-              type="submit" 
-              id="submitDepositBtn"
-              class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
+            <button type="submit" id="submitDepositBtn" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
               <span>Send PIN Prompt To Phone</span>
             </button>
           </form>
-
           <div id="waitingState" class="hidden py-4 space-y-4">
             <div class="bg-amber-50 border border-amber-300 p-4 rounded-xl space-y-3">
               <div class="flex items-center justify-between">
@@ -212,17 +192,14 @@
                 </span>
                 <span class="text-[11px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded">Airtel Merchant</span>
               </div>
-              
               <p class="text-xs text-amber-900 leading-relaxed">
                 Please complete payment to <strong>Airtel Merchant Code: 7183127 (Kishan Incomes Ltd)</strong>.
               </p>
-
               <div class="bg-white p-3 rounded-xl border border-amber-200 text-center space-y-1">
                 <p class="text-[11px] text-gray-500 font-bold uppercase">Merchant Code</p>
                 <p class="text-2xl font-extrabold text-emerald-800 tracking-wider font-mono">7183127</p>
                 <p class="text-xs font-semibold text-gray-700">Kishan Incomes Ltd</p>
               </div>
-
               <div class="bg-amber-100/60 p-2.5 rounded-lg text-[11px] text-amber-900 space-y-1">
                 <p class="font-bold">How to pay:</p>
                 <ol class="list-decimal list-inside space-y-0.5 text-gray-700">
@@ -232,14 +209,11 @@
                   <li>Enter Amount & your PIN to authorize</li>
                 </ol>
               </div>
-
               <div class="text-center text-[11px] text-gray-500 pt-1">
                 Reference: <span id="pollRef" class="font-mono font-bold text-gray-800"></span>
               </div>
             </div>
-
             <p class="text-center text-xs text-gray-500 animate-pulse">Awaiting payment confirmation...</p>
-            
             <button type="button" onclick="resetModalState()" class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">
                 Cancel & Go Back
             </button>
@@ -251,7 +225,6 @@
     <!-- Mobile Money Withdrawal Modal -->
     <div id="withdrawalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
-        
         <div class="bg-amber-900 text-white px-6 py-4 flex justify-between items-center">
           <div>
             <h3 class="font-bold text-lg">Request Wallet Withdrawal</h3>
@@ -259,15 +232,12 @@
           </div>
           <button onclick="closeWithdrawalModal()" class="text-amber-200 hover:text-white text-xl font-bold">&times;</button>
         </div>
-
         <div class="p-6 space-y-5">
           <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex justify-between items-center">
             <span class="text-xs text-emerald-800 font-medium">Available Balance:</span>
             <span id="modalAvailableBalance" class="text-sm font-extrabold text-emerald-900">UGX 0</span>
           </div>
-
           <div id="withdrawalAlert" class="hidden p-3 rounded-lg text-xs font-medium"></div>
-
           <form id="withdrawalForm" onsubmit="handleWithdrawalSubmit(event)" class="space-y-4">
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Payout Network</label>
@@ -288,31 +258,16 @@
                 </label>
               </div>
             </div>
-
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Receiving Mobile Number</label>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs">+256</span>
-                <input 
-                  type="tel" 
-                  id="withdrawalPhone" 
-                  placeholder="770000000" 
-                  required
-                  class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-mono"
-                />
+                <input type="tel" id="withdrawalPhone" placeholder="770000000" required class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-mono">
               </div>
             </div>
-
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Amount to Withdraw (UGX)</label>
-              <input 
-                type="number" 
-                id="withdrawalAmount" 
-                placeholder="e.g. 20000" 
-                min="1000" 
-                required
-                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold"
-              />
+              <input type="number" id="withdrawalAmount" placeholder="e.g. 20000" min="1000" required class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold">
               <div class="flex gap-2 mt-2">
                 <button type="button" onclick="setWithdrawQuickAmount(5000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">5k</button>
                 <button type="button" onclick="setWithdrawQuickAmount(10000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">10k</button>
@@ -320,19 +275,13 @@
                 <button type="button" onclick="setWithdrawMaxAmount()" class="text-[11px] bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md font-bold text-amber-800">Withdraw All</button>
               </div>
             </div>
-
-            <button 
-              type="submit" 
-              id="submitWithdrawBtn"
-              class="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
+            <button type="submit" id="submitWithdrawBtn" class="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
               <span>Confirm Withdrawal Request</span>
             </button>
           </form>
-
         </div>
       </div>
     </div>
-
   </main>
 
   <script>
@@ -355,11 +304,10 @@
       document.getElementById('member-phone').textContent = user.phone_number || '';
       document.getElementById('ref-code-display').textContent = user.referral_code || 'N/A';
 
-      // Network auto-detection listeners
       setupNetworkAutoDetect('depositPhone', 'network');
       setupNetworkAutoDetect('withdrawalPhone', 'withdrawNetwork');
 
-      fetchBalance(); // ✅ Load balance on load
+      fetchBalance();
       fetchWalletData();
     });
 
@@ -371,7 +319,6 @@
           let prefix = val;
           if (val.startsWith('256')) prefix = val.substring(3);
           if (val.startsWith('0')) prefix = val.substring(1);
-
           if (prefix.length >= 2) {
             const p2 = prefix.substring(0, 2);
             if (['77', '78', '76'].includes(p2)) {
@@ -384,7 +331,6 @@
       }
     }
 
-    // ✅ NEW: Fetch balance from /api/auth/me
     async function fetchBalance() {
       try {
         const token = localStorage.getItem('kishan_token');
@@ -398,8 +344,6 @@
           document.getElementById('balance-display').innerText = `UGX ${balance.toLocaleString()}`;
           document.getElementById('modalAvailableBalance').innerText = `UGX ${balance.toLocaleString()}`;
           currentLiquidBalance = balance;
-
-          // Bonus balance
           const bonus = Number(data.user.bonus_balance) || 0;
           document.getElementById('bonus-display').innerText = `UGX ${bonus.toLocaleString()}`;
         }
@@ -408,12 +352,10 @@
       }
     }
 
-    // Deposit Modal Functions
+    // Deposit Modal Functions (unchanged)
     function openDepositModal() {
-      const modal = document.getElementById('depositModal');
-      modal.classList.remove('hidden');
+      document.getElementById('depositModal').classList.remove('hidden');
       resetModalState();
-
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
       if (user.phone_number) {
         let rawPhone = user.phone_number.replace(/^256/, '');
@@ -443,40 +385,27 @@
       alertBox.textContent = msg;
     }
 
-    // STK Push Deposit Submission
     async function handleSTKSubmit(event) {
       event.preventDefault();
       const token = localStorage.getItem('kishan_token');
       const phone = document.getElementById('depositPhone').value.trim();
       const amount = document.getElementById('depositAmount').value.trim();
       const network = document.querySelector('input[name="network"]:checked').value;
-
       const btn = document.getElementById('submitDepositBtn');
       btn.disabled = true;
       btn.innerText = 'Initiating...';
-
       try {
         const response = await fetch(`${API_BASE}/deposit/stk-push`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ phone_number: phone, amount, network })
         });
-
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Deposit initiation failed');
-        }
-
+        if (!response.ok) throw new Error(data.message || 'Deposit initiation failed');
         document.getElementById('stkDepositForm').classList.add('hidden');
         document.getElementById('waitingState').classList.remove('hidden');
         document.getElementById('pollRef').textContent = data.reference;
-
         startStatusPolling(data.reference, token);
-
       } catch (err) {
         btn.disabled = false;
         btn.innerText = 'Send PIN Prompt To Phone';
@@ -494,41 +423,33 @@
           closeDepositModal();
           return;
         }
-
         try {
           const res = await fetch(`${API_BASE}/deposit/status/${reference}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const data = await res.json();
-
           if (data.success && data.transaction) {
             if (data.transaction.status === 'completed') {
               clearInterval(pollInterval);
               alert(`Deposit of UGX ${parseFloat(data.transaction.amount).toLocaleString()} received successfully!`);
               closeDepositModal();
-              fetchBalance();    // ✅ Refresh balance
-              fetchWalletData(); // ✅ Refresh investments
+              fetchBalance();
+              fetchWalletData();
             } else if (data.transaction.status === 'failed') {
               clearInterval(pollInterval);
               alert('Deposit transaction failed or was cancelled by user.');
               resetModalState();
             }
           }
-        } catch (e) {
-          console.error('Polling error:', e);
-        }
+        } catch (e) { console.error('Polling error:', e); }
       }, 3000);
     }
 
     // Withdrawal Modal Functions
     function openWithdrawalModal() {
-      const modal = document.getElementById('withdrawalModal');
-      modal.classList.remove('hidden');
+      document.getElementById('withdrawalModal').classList.remove('hidden');
       showWithdrawAlert('', 'hidden');
-
-      // Use current balance from fetchBalance
       document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
-
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
       if (user.phone_number) {
         let rawPhone = user.phone_number.replace(/^256/, '');
@@ -556,47 +477,33 @@
       alertBox.textContent = msg;
     }
 
-    // B2C Withdrawal Submission
     async function handleWithdrawalSubmit(event) {
       event.preventDefault();
       const token = localStorage.getItem('kishan_token');
       const phone = document.getElementById('withdrawalPhone').value.trim();
       const amount = parseFloat(document.getElementById('withdrawalAmount').value);
       const network = document.querySelector('input[name="withdrawNetwork"]:checked').value;
-
       if (amount > currentLiquidBalance) {
         showWithdrawAlert(`Insufficient funds. Your available balance is UGX ${currentLiquidBalance.toLocaleString()}`, 'bg-red-50 text-red-800 border border-red-200');
         return;
       }
-
       const btn = document.getElementById('submitWithdrawBtn');
       btn.disabled = true;
       btn.innerText = 'Processing Payout...';
-
       try {
         const response = await fetch(`${API_BASE}/withdrawal/request`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ phone_number: phone, amount, network })
         });
-
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Withdrawal request failed');
-        }
-
+        if (!response.ok) throw new Error(data.message || 'Withdrawal request failed');
         showWithdrawAlert(data.message, 'bg-emerald-50 text-emerald-800 border border-emerald-200');
-        
         setTimeout(() => {
           closeWithdrawalModal();
-          fetchBalance();    // ✅ Refresh balance after withdrawal
-          fetchWalletData(); // ✅ Refresh investments
+          fetchBalance();
+          fetchWalletData();
         }, 2000);
-
       } catch (err) {
         showWithdrawAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
       } finally {
@@ -608,57 +515,71 @@
     // Fetch member investments and wallet summary
     async function fetchWalletData() {
       const token = localStorage.getItem('kishan_token');
-
       try {
         const res = await fetch(`${API_BASE}/investments/my-investments`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-
         if (!res.ok) throw new Error('Failed to fetch wallet investments.');
         const investments = await res.json();
-
         renderInvestments(investments);
       } catch (err) {
         console.error(err);
         document.getElementById('investments-table-body').innerHTML = 
-          `<tr><td colspan="7" class="p-6 text-center text-red-500">${err.message}</td></tr>`;
+          `<tr><td colspan="9" class="p-6 text-center text-red-500">${err.message}</td></tr>`;
       }
     }
 
+    // ✅ Enhanced renderInvestments with daily earnings, progress bar, etc.
     function renderInvestments(investments) {
       const tbody = document.getElementById('investments-table-body');
       let totalLocked = 0;
       let totalExpected = 0;
+      let totalEarned = 0;
 
       if (!investments.length) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="7" class="p-8 text-center text-gray-400">
+            <td colspan="9" class="p-8 text-center text-gray-400">
               You have no active locked investments. <a href="index.html" class="text-emerald-700 underline font-semibold">Browse programs to start earning</a>.
             </td>
           </tr>`;
         document.getElementById('locked-total-display').textContent = 'UGX 0';
         document.getElementById('expected-total-display').textContent = 'UGX 0';
+        // Remove any existing earned display
+        const earnedDisplay = document.querySelector('.earned-display');
+        if (earnedDisplay) earnedDisplay.remove();
         return;
       }
 
       tbody.innerHTML = investments.map(inv => {
         const invested = parseFloat(inv.total_invested);
-        const payout = parseFloat(inv.expected_payout);
+        const dailyEarning = parseFloat(inv.daily_earning || 0);
+        const currentEarnings = parseFloat(inv.current_earnings || 0);
+        const expectedPayout = parseFloat(inv.expected_payout);
         
         if (inv.status === 'active') {
           totalLocked += invested;
-          totalExpected += payout;
+          totalExpected += expectedPayout;
+          totalEarned += currentEarnings;
         }
 
         const endDate = new Date(inv.end_date);
-        const today = new Date();
-        const timeDiff = endDate - today;
-        const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
+        const daysRemaining = inv.days_remaining || 0;
+        const progress = inv.progress_percentage || 0;
+        const dailyDisplay = dailyEarning > 0 ? `UGX ${dailyEarning.toFixed(2)}` : 'N/A';
 
         let badgeClass = 'bg-emerald-100 text-emerald-800';
-        if (inv.status === 'matured') badgeClass = 'bg-blue-100 text-blue-800';
-        if (inv.status === 'withdrawn') badgeClass = 'bg-gray-100 text-gray-600';
+        let statusText = 'Active';
+        if (inv.status === 'matured') {
+          badgeClass = 'bg-blue-100 text-blue-800';
+          statusText = 'Matured ✅';
+        }
+        if (inv.status === 'withdrawn') {
+          badgeClass = 'bg-gray-100 text-gray-600';
+          statusText = 'Withdrawn';
+        }
+
+        const progressColor = progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-blue-500' : 'bg-emerald-500';
 
         return `
           <tr class="hover:bg-gray-50 transition">
@@ -668,16 +589,22 @@
               <div class="text-[11px] text-gray-400">UGX ${invested.toLocaleString()}</div>
             </td>
             <td class="p-4 text-emerald-700 font-bold">+${inv.roi_percentage}%</td>
-            <td class="p-4 font-extrabold text-gray-800">UGX ${payout.toLocaleString()}</td>
-            <td class="p-4 text-gray-500">${endDate.toLocaleDateString()}</td>
+            <td class="p-4 font-semibold text-amber-600">${dailyDisplay}/day</td>
+            <td class="p-4 font-bold text-green-600">UGX ${currentEarnings.toFixed(2)}</td>
+            <td class="p-4 font-extrabold text-gray-800">UGX ${expectedPayout.toFixed(2)}</td>
             <td class="p-4">
-              ${inv.status === 'active' 
-                ? `<span class="font-semibold ${daysRemaining <= 3 ? 'text-amber-600' : 'text-gray-700'}">${daysRemaining} Days left</span>` 
-                : `<span class="text-gray-400">Completed</span>`}
+              <div class="flex items-center gap-2">
+                <div class="w-24 bg-gray-200 rounded-full h-2">
+                  <div class="${progressColor} h-2 rounded-full" style="width: ${Math.min(progress, 100)}%"></div>
+                </div>
+                <span class="text-[10px] font-semibold text-gray-600">${Math.min(progress, 100)}%</span>
+              </div>
+              <div class="text-[10px] text-gray-400 mt-1">${daysRemaining} days remaining</div>
             </td>
+            <td class="p-4 text-gray-500">${endDate.toLocaleDateString()}</td>
             <td class="p-4 text-center">
               <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}">
-                ${inv.status}
+                ${statusText}
               </span>
             </td>
           </tr>
@@ -685,7 +612,21 @@
       }).join('');
 
       document.getElementById('locked-total-display').textContent = `UGX ${totalLocked.toLocaleString()}`;
-      document.getElementById('expected-total-display').textContent = `UGX ${totalExpected.toLocaleString()}`;
+      document.getElementById('expected-total-display').textContent = `UGX ${totalExpected.toFixed(2)}`;
+      
+      // Show earned so far for active investments
+      let earnedDisplay = document.querySelector('.earned-display');
+      if (totalEarned > 0) {
+        if (!earnedDisplay) {
+          earnedDisplay = document.createElement('p');
+          earnedDisplay.className = 'text-[11px] text-green-600 font-bold mt-0.5 earned-display';
+          const parent = document.getElementById('expected-total-display').parentElement;
+          parent.appendChild(earnedDisplay);
+        }
+        earnedDisplay.textContent = `📈 Earned so far: UGX ${totalEarned.toFixed(2)}`;
+      } else if (earnedDisplay) {
+        earnedDisplay.remove();
+      }
     }
 
     function copyReferralCode() {

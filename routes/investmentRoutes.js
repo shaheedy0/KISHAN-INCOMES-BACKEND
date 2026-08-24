@@ -19,6 +19,9 @@ router.get('/programs', async (req, res) => {
 router.get('/my-investments', verifyToken, investmentController.getMyInvestments);
 router.post('/purchase', verifyToken, investmentController.purchaseShares);
 
+// ✅ Mature investments (admin or cron trigger) – protected by token
+router.post('/mature', verifyToken, investmentController.matureInvestments);
+
 // POST: Create Investment Program with 'active' status
 router.post('/programs', verifyToken, async (req, res) => {
   try {
