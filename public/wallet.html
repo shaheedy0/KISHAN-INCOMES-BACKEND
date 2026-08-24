@@ -16,12 +16,8 @@
     </div>
     <div class="flex items-center gap-3">
       <nav class="flex items-center gap-3 mr-3">
-        <a href="index.html" class="text-sm text-emerald-200 hover:text-white transition font-medium border-r border-emerald-600 pr-3">
-          📊 Dashboard
-        </a>
-        <a href="wallet.html" class="text-sm text-emerald-200 hover:text-white transition font-medium">
-          💰 My Wallet
-        </a>
+        <a href="index.html" class="text-sm text-emerald-200 hover:text-white transition font-medium border-r border-emerald-600 pr-3">📊 Dashboard</a>
+        <a href="wallet.html" class="text-sm text-emerald-200 hover:text-white transition font-medium">💰 My Wallet</a>
       </nav>
       <div class="text-right hidden sm:block">
         <p id="member-name" class="font-semibold text-sm text-emerald-100">Member</p>
@@ -86,7 +82,28 @@
 
     </div>
 
-    <!-- Section 2: Referral Code Sharing Banner -->
+    <!-- 🔗 NEW: Referral Link Section -->
+    <div id="referral-section" class="bg-white rounded-2xl shadow-md border border-gray-200 p-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h4 class="text-sm font-bold text-gray-700 flex items-center gap-2">
+            <span>🔗</span> Your Referral Link
+          </h4>
+          <p class="text-xs text-gray-500">Share this link with friends to earn bonuses when they join!</p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <input type="text" id="referralLinkDisplay" readonly 
+                 class="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50 font-mono text-emerald-700 truncate"
+                 value="Loading...">
+          <button onclick="copyReferralLink()" 
+                  class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3 py-2 rounded-lg transition whitespace-nowrap">
+            Copy Link
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Referral Code Sharing Banner (existing) -->
     <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="space-y-1 text-center sm:text-left">
         <h3 class="text-sm font-bold text-emerald-900">Invite & Earn Referral Bonuses</h3>
@@ -94,9 +111,7 @@
       </div>
       <div class="flex items-center gap-2 w-full sm:w-auto">
         <span id="ref-code-display" class="bg-white border border-emerald-300 font-mono text-sm font-bold text-emerald-800 px-3 py-1.5 rounded text-center w-full sm:w-auto">KISHAN-XXXXX</span>
-        <button onclick="copyReferralCode()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-4 py-2 rounded transition whitespace-nowrap">
-          Copy Code
-        </button>
+        <button onclick="copyReferralCode()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-4 py-2 rounded transition whitespace-nowrap">Copy Code</button>
       </div>
     </div>
 
@@ -139,7 +154,6 @@
     <!-- Mobile Money Deposit Modal -->
     <div id="depositModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
-        
         <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
           <div>
             <h3 class="font-bold text-lg">Mobile Money Deposit</h3>
@@ -147,7 +161,6 @@
           </div>
           <button onclick="closeDepositModal()" class="text-emerald-200 hover:text-white text-xl font-bold">&times;</button>
         </div>
-
         <div class="p-6 space-y-5">
           <div id="modalAlert" class="hidden p-3 rounded-lg text-xs font-medium"></div>
 
@@ -176,27 +189,14 @@
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Mobile Phone Number</label>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs">+256</span>
-                <input 
-                  type="tel" 
-                  id="depositPhone" 
-                  placeholder="770000000" 
-                  required
-                  class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono"
-                />
+                <input type="tel" id="depositPhone" placeholder="770000000" required class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono">
               </div>
               <p class="text-[11px] text-gray-400 mt-1">Accepts standard numbers e.g. 0779158770 or 779158770</p>
             </div>
 
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Deposit Amount (UGX)</label>
-              <input 
-                type="number" 
-                id="depositAmount" 
-                placeholder="e.g. 50000" 
-                min="500" 
-                required
-                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold"
-              />
+              <input type="number" id="depositAmount" placeholder="e.g. 50000" min="500" required class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold">
               <div class="flex gap-2 mt-2">
                 <button type="button" onclick="setQuickAmount(10000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">10k</button>
                 <button type="button" onclick="setQuickAmount(50000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">50k</button>
@@ -205,10 +205,7 @@
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              id="submitDepositBtn"
-              class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
+            <button type="submit" id="submitDepositBtn" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
               <span>Send PIN Prompt To Phone</span>
             </button>
           </form>
@@ -217,22 +214,16 @@
             <div class="bg-amber-50 border border-amber-300 p-4 rounded-xl space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse"></span>
-                  Status: Pending Payment
+                  <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse"></span> Status: Pending Payment
                 </span>
                 <span class="text-[11px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded">Airtel Merchant</span>
               </div>
-              
-              <p class="text-xs text-amber-900 leading-relaxed">
-                Please complete payment to <strong>Airtel Merchant Code: 7183127 (Kishan Incomes Ltd)</strong>.
-              </p>
-
+              <p class="text-xs text-amber-900 leading-relaxed">Please complete payment to <strong>Airtel Merchant Code: 7183127 (Kishan Incomes Ltd)</strong>.</p>
               <div class="bg-white p-3 rounded-xl border border-amber-200 text-center space-y-1">
                 <p class="text-[11px] text-gray-500 font-bold uppercase">Merchant Code</p>
                 <p class="text-2xl font-extrabold text-emerald-800 tracking-wider font-mono">7183127</p>
                 <p class="text-xs font-semibold text-gray-700">Kishan Incomes Ltd</p>
               </div>
-
               <div class="bg-amber-100/60 p-2.5 rounded-lg text-[11px] text-amber-900 space-y-1">
                 <p class="font-bold">How to pay:</p>
                 <ol class="list-decimal list-inside space-y-0.5 text-gray-700">
@@ -242,17 +233,10 @@
                   <li>Enter Amount & your PIN to authorize</li>
                 </ol>
               </div>
-
-              <div class="text-center text-[11px] text-gray-500 pt-1">
-                Reference: <span id="pollRef" class="font-mono font-bold text-gray-800"></span>
-              </div>
+              <div class="text-center text-[11px] text-gray-500 pt-1">Reference: <span id="pollRef" class="font-mono font-bold text-gray-800"></span></div>
             </div>
-
             <p class="text-center text-xs text-gray-500 animate-pulse">Awaiting payment confirmation...</p>
-            
-            <button type="button" onclick="resetModalState()" class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">
-                Cancel & Go Back
-            </button>
+            <button type="button" onclick="resetModalState()" class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm py-2.5 rounded-xl transition cursor-pointer">Cancel & Go Back</button>
           </div>
         </div>
       </div>
@@ -261,7 +245,6 @@
     <!-- Mobile Money Withdrawal Modal -->
     <div id="withdrawalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
-        
         <div class="bg-amber-900 text-white px-6 py-4 flex justify-between items-center">
           <div>
             <h3 class="font-bold text-lg">Request Wallet Withdrawal</h3>
@@ -269,15 +252,12 @@
           </div>
           <button onclick="closeWithdrawalModal()" class="text-amber-200 hover:text-white text-xl font-bold">&times;</button>
         </div>
-
         <div class="p-6 space-y-5">
           <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex justify-between items-center">
             <span class="text-xs text-emerald-800 font-medium">Available Balance:</span>
             <span id="modalAvailableBalance" class="text-sm font-extrabold text-emerald-900">UGX 0</span>
           </div>
-
           <div id="withdrawalAlert" class="hidden p-3 rounded-lg text-xs font-medium"></div>
-
           <form id="withdrawalForm" onsubmit="handleWithdrawalSubmit(event)" class="space-y-4">
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Payout Network</label>
@@ -303,26 +283,13 @@
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Receiving Mobile Number</label>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs">+256</span>
-                <input 
-                  type="tel" 
-                  id="withdrawalPhone" 
-                  placeholder="770000000" 
-                  required
-                  class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-mono"
-                />
+                <input type="tel" id="withdrawalPhone" placeholder="770000000" required class="w-full pl-14 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-mono">
               </div>
             </div>
 
             <div>
               <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Amount to Withdraw (UGX)</label>
-              <input 
-                type="number" 
-                id="withdrawalAmount" 
-                placeholder="e.g. 20000" 
-                min="1000" 
-                required
-                class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold"
-              />
+              <input type="number" id="withdrawalAmount" placeholder="e.g. 20000" min="1000" required class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-semibold">
               <div class="flex gap-2 mt-2">
                 <button type="button" onclick="setWithdrawQuickAmount(5000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">5k</button>
                 <button type="button" onclick="setWithdrawQuickAmount(10000)" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-md font-medium text-gray-600">10k</button>
@@ -331,31 +298,75 @@
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              id="submitWithdrawBtn"
-              class="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
+            <button type="submit" id="submitWithdrawBtn" class="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold text-sm py-3 rounded-xl transition shadow-lg flex justify-center items-center gap-2">
               <span>Confirm Withdrawal Request</span>
             </button>
           </form>
-
         </div>
       </div>
     </div>
 
   </main>
 
-  <!-- ✅ All JavaScript consolidated here -->
   <script>
     (function() {
       'use strict';
 
-      // ✅ Configuration
+      // Configuration
       const API_BASE = 'https://kishan-incomes.onrender.com/api';
       let pollInterval = null;
       let currentLiquidBalance = 0;
 
-      // ✅ Auth Check
+      // =========================================================
+      //  REFERRAL LINK FUNCTIONS (NEW)
+      // =========================================================
+      function generateReferralLink() {
+        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+        if (!user.referral_code) return null;
+        const baseUrl = window.location.origin + window.location.pathname;
+        return `${baseUrl}?ref=${user.referral_code}`;
+      }
+
+      function displayReferralLink() {
+        const linkInput = document.getElementById('referralLinkDisplay');
+        if (!linkInput) return;
+        const link = generateReferralLink();
+        if (link) {
+          linkInput.value = link;
+        } else {
+          linkInput.value = 'No referral code available';
+        }
+      }
+
+      function copyReferralLink() {
+        const linkInput = document.getElementById('referralLinkDisplay');
+        if (!linkInput || !linkInput.value || linkInput.value === 'No referral code available') {
+          alert('No referral link to copy.');
+          return;
+        }
+        const link = linkInput.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link)
+            .then(() => alert('Referral link copied to clipboard!'))
+            .catch(() => fallbackCopy(link));
+        } else {
+          fallbackCopy(link);
+        }
+      }
+
+      function fallbackCopy(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('Referral link copied to clipboard!');
+      }
+
+      // =========================================================
+      //  AUTHENTICATION & USER INFO
+      // =========================================================
       const token = localStorage.getItem('kishan_token');
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
 
@@ -365,14 +376,12 @@
         return;
       }
 
-      // ✅ Display user info
       function displayUserInfo() {
         document.getElementById('member-name').textContent = user.full_name || 'Member';
         document.getElementById('member-phone').textContent = user.phone_number || '';
         document.getElementById('ref-code-display').textContent = user.referral_code || 'N/A';
       }
 
-      // ✅ Setup network auto-detect
       function setupNetworkAutoDetect(inputId, radioName) {
         const phoneInput = document.getElementById(inputId);
         if (phoneInput) {
@@ -394,7 +403,9 @@
         }
       }
 
-      // ✅ Fetch current balance
+      // =========================================================
+      //  BALANCE & WALLET DATA
+      // =========================================================
       window.fetchBalance = async function() {
         try {
           const token = localStorage.getItem('kishan_token');
@@ -417,214 +428,14 @@
         }
       };
 
-      // ✅ Deposit Modal Functions
-      window.openDepositModal = function() {
-        const modal = document.getElementById('depositModal');
-        modal.classList.remove('hidden');
-        resetModalState();
-
-        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
-        if (user.phone_number) {
-          let rawPhone = user.phone_number.replace(/^256/, '');
-          document.getElementById('depositPhone').value = rawPhone;
-        }
-      };
-
-      window.closeDepositModal = function() {
-        document.getElementById('depositModal').classList.add('hidden');
-        if (pollInterval) clearInterval(pollInterval);
-      };
-
-      window.setQuickAmount = function(amt) {
-        document.getElementById('depositAmount').value = amt;
-      };
-
-      function resetModalState() {
-        document.getElementById('stkDepositForm').classList.remove('hidden');
-        document.getElementById('waitingState').classList.add('hidden');
-        document.getElementById('submitDepositBtn').disabled = false;
-        showAlert('', 'hidden');
-      }
-
-      function showAlert(msg, type) {
-        const alertBox = document.getElementById('modalAlert');
-        alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + type;
-        alertBox.textContent = msg;
-      }
-
-      // ✅ STK Push Deposit Submission
-      window.handleSTKSubmit = async function(event) {
-        event.preventDefault();
-        const token = localStorage.getItem('kishan_token');
-        const phone = document.getElementById('depositPhone').value.trim();
-        const amount = document.getElementById('depositAmount').value.trim();
-        const network = document.querySelector('input[name="network"]:checked').value;
-
-        const btn = document.getElementById('submitDepositBtn');
-        btn.disabled = true;
-        btn.innerText = 'Initiating...';
-
-        try {
-          const response = await fetch(`${API_BASE}/deposit/stk-push`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ phone_number: phone, amount, network })
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || 'Deposit initiation failed');
-          }
-
-          document.getElementById('stkDepositForm').classList.add('hidden');
-          document.getElementById('waitingState').classList.remove('hidden');
-          document.getElementById('pollRef').textContent = data.reference;
-
-          startStatusPolling(data.reference, token);
-
-        } catch (err) {
-          btn.disabled = false;
-          btn.innerText = 'Send PIN Prompt To Phone';
-          showAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
-        }
-      };
-
-      function startStatusPolling(reference, token) {
-        let checks = 0;
-        pollInterval = setInterval(async () => {
-          checks++;
-          if (checks > 20) {
-            clearInterval(pollInterval);
-            alert('Transaction timed out. If you entered your PIN, your balance will update automatically.');
-            window.closeDepositModal();
-            return;
-          }
-
-          try {
-            const res = await fetch(`${API_BASE}/deposit/status/${reference}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
-
-            if (data.success && data.transaction) {
-              if (data.transaction.status === 'completed') {
-                clearInterval(pollInterval);
-                alert(`Deposit of UGX ${parseFloat(data.transaction.amount).toLocaleString()} received successfully!`);
-                window.closeDepositModal();
-                window.fetchBalance();
-                window.fetchWalletData();
-              } else if (data.transaction.status === 'failed') {
-                clearInterval(pollInterval);
-                alert('Deposit transaction failed or was cancelled by user.');
-                resetModalState();
-              }
-            }
-          } catch (e) {
-            console.error('Polling error:', e);
-          }
-        }, 3000);
-      }
-
-      // ✅ Withdrawal Modal Functions
-      window.openWithdrawalModal = function() {
-        const modal = document.getElementById('withdrawalModal');
-        modal.classList.remove('hidden');
-        showWithdrawAlert('', 'hidden');
-
-        document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
-
-        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
-        if (user.phone_number) {
-          let rawPhone = user.phone_number.replace(/^256/, '');
-          document.getElementById('withdrawalPhone').value = rawPhone;
-        }
-      };
-
-      window.closeWithdrawalModal = function() {
-        document.getElementById('withdrawalModal').classList.add('hidden');
-      };
-
-      window.setWithdrawQuickAmount = function(amt) {
-        document.getElementById('withdrawalAmount').value = amt;
-      };
-
-      window.setWithdrawMaxAmount = function() {
-        if (currentLiquidBalance > 0) {
-          document.getElementById('withdrawalAmount').value = currentLiquidBalance;
-        }
-      };
-
-      function showWithdrawAlert(msg, typeClass) {
-        const alertBox = document.getElementById('withdrawalAlert');
-        alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + typeClass;
-        alertBox.textContent = msg;
-      }
-
-      // ✅ B2C Withdrawal Submission
-      window.handleWithdrawalSubmit = async function(event) {
-        event.preventDefault();
-        const token = localStorage.getItem('kishan_token');
-        const phone = document.getElementById('withdrawalPhone').value.trim();
-        const amount = parseFloat(document.getElementById('withdrawalAmount').value);
-        const network = document.querySelector('input[name="withdrawNetwork"]:checked').value;
-
-        if (amount > currentLiquidBalance) {
-          showWithdrawAlert(`Insufficient funds. Your available balance is UGX ${currentLiquidBalance.toLocaleString()}`, 'bg-red-50 text-red-800 border border-red-200');
-          return;
-        }
-
-        const btn = document.getElementById('submitWithdrawBtn');
-        btn.disabled = true;
-        btn.innerText = 'Processing Payout...';
-
-        try {
-          const response = await fetch(`${API_BASE}/withdrawal/request`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ phone_number: phone, amount, network })
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || 'Withdrawal request failed');
-          }
-
-          showWithdrawAlert(data.message, 'bg-emerald-50 text-emerald-800 border border-emerald-200');
-          
-          setTimeout(() => {
-            window.closeWithdrawalModal();
-            window.fetchBalance();
-            window.fetchWalletData();
-          }, 2000);
-
-        } catch (err) {
-          showWithdrawAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
-        } finally {
-          btn.disabled = false;
-          btn.innerText = 'Confirm Withdrawal Request';
-        }
-      };
-
-      // ✅ Fetch member investments
       window.fetchWalletData = async function() {
         const token = localStorage.getItem('kishan_token');
-
         try {
           const res = await fetch(`${API_BASE}/investments/my-investments`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-
           if (!res.ok) throw new Error('Failed to fetch wallet investments.');
           const investments = await res.json();
-
           renderInvestments(investments);
         } catch (err) {
           console.error(err);
@@ -633,7 +444,6 @@
         }
       };
 
-      // ✅ Render investments
       function renderInvestments(investments) {
         const tbody = document.getElementById('investments-table-body');
         let totalLocked = 0;
@@ -735,7 +545,204 @@
         }
       }
 
-      // ✅ Copy referral code
+      // =========================================================
+      //  DEPOSIT MODAL
+      // =========================================================
+      window.openDepositModal = function() {
+        const modal = document.getElementById('depositModal');
+        modal.classList.remove('hidden');
+        resetModalState();
+        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+        if (user.phone_number) {
+          let rawPhone = user.phone_number.replace(/^256/, '');
+          document.getElementById('depositPhone').value = rawPhone;
+        }
+      };
+
+      window.closeDepositModal = function() {
+        document.getElementById('depositModal').classList.add('hidden');
+        if (pollInterval) clearInterval(pollInterval);
+      };
+
+      window.setQuickAmount = function(amt) {
+        document.getElementById('depositAmount').value = amt;
+      };
+
+      function resetModalState() {
+        document.getElementById('stkDepositForm').classList.remove('hidden');
+        document.getElementById('waitingState').classList.add('hidden');
+        document.getElementById('submitDepositBtn').disabled = false;
+        showAlert('', 'hidden');
+      }
+
+      function showAlert(msg, type) {
+        const alertBox = document.getElementById('modalAlert');
+        alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + type;
+        alertBox.textContent = msg;
+      }
+
+      window.handleSTKSubmit = async function(event) {
+        event.preventDefault();
+        const token = localStorage.getItem('kishan_token');
+        const phone = document.getElementById('depositPhone').value.trim();
+        const amount = document.getElementById('depositAmount').value.trim();
+        const network = document.querySelector('input[name="network"]:checked').value;
+
+        const btn = document.getElementById('submitDepositBtn');
+        btn.disabled = true;
+        btn.innerText = 'Initiating...';
+
+        try {
+          const response = await fetch(`${API_BASE}/deposit/stk-push`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ phone_number: phone, amount, network })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Deposit initiation failed');
+          }
+
+          document.getElementById('stkDepositForm').classList.add('hidden');
+          document.getElementById('waitingState').classList.remove('hidden');
+          document.getElementById('pollRef').textContent = data.reference;
+
+          startStatusPolling(data.reference, token);
+
+        } catch (err) {
+          btn.disabled = false;
+          btn.innerText = 'Send PIN Prompt To Phone';
+          showAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
+        }
+      };
+
+      function startStatusPolling(reference, token) {
+        let checks = 0;
+        pollInterval = setInterval(async () => {
+          checks++;
+          if (checks > 20) {
+            clearInterval(pollInterval);
+            alert('Transaction timed out. If you entered your PIN, your balance will update automatically.');
+            window.closeDepositModal();
+            return;
+          }
+
+          try {
+            const res = await fetch(`${API_BASE}/deposit/status/${reference}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+
+            if (data.success && data.transaction) {
+              if (data.transaction.status === 'completed') {
+                clearInterval(pollInterval);
+                alert(`Deposit of UGX ${parseFloat(data.transaction.amount).toLocaleString()} received successfully!`);
+                window.closeDepositModal();
+                window.fetchBalance();
+                window.fetchWalletData();
+              } else if (data.transaction.status === 'failed') {
+                clearInterval(pollInterval);
+                alert('Deposit transaction failed or was cancelled by user.');
+                resetModalState();
+              }
+            }
+          } catch (e) {
+            console.error('Polling error:', e);
+          }
+        }, 3000);
+      }
+
+      // =========================================================
+      //  WITHDRAWAL MODAL
+      // =========================================================
+      window.openWithdrawalModal = function() {
+        const modal = document.getElementById('withdrawalModal');
+        modal.classList.remove('hidden');
+        showWithdrawAlert('', 'hidden');
+        document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
+        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+        if (user.phone_number) {
+          let rawPhone = user.phone_number.replace(/^256/, '');
+          document.getElementById('withdrawalPhone').value = rawPhone;
+        }
+      };
+
+      window.closeWithdrawalModal = function() {
+        document.getElementById('withdrawalModal').classList.add('hidden');
+      };
+
+      window.setWithdrawQuickAmount = function(amt) {
+        document.getElementById('withdrawalAmount').value = amt;
+      };
+
+      window.setWithdrawMaxAmount = function() {
+        if (currentLiquidBalance > 0) {
+          document.getElementById('withdrawalAmount').value = currentLiquidBalance;
+        }
+      };
+
+      function showWithdrawAlert(msg, typeClass) {
+        const alertBox = document.getElementById('withdrawalAlert');
+        alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + typeClass;
+        alertBox.textContent = msg;
+      }
+
+      window.handleWithdrawalSubmit = async function(event) {
+        event.preventDefault();
+        const token = localStorage.getItem('kishan_token');
+        const phone = document.getElementById('withdrawalPhone').value.trim();
+        const amount = parseFloat(document.getElementById('withdrawalAmount').value);
+        const network = document.querySelector('input[name="withdrawNetwork"]:checked').value;
+
+        if (amount > currentLiquidBalance) {
+          showWithdrawAlert(`Insufficient funds. Your available balance is UGX ${currentLiquidBalance.toLocaleString()}`, 'bg-red-50 text-red-800 border border-red-200');
+          return;
+        }
+
+        const btn = document.getElementById('submitWithdrawBtn');
+        btn.disabled = true;
+        btn.innerText = 'Processing Payout...';
+
+        try {
+          const response = await fetch(`${API_BASE}/withdrawal/request`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ phone_number: phone, amount, network })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Withdrawal request failed');
+          }
+
+          showWithdrawAlert(data.message, 'bg-emerald-50 text-emerald-800 border border-emerald-200');
+          
+          setTimeout(() => {
+            window.closeWithdrawalModal();
+            window.fetchBalance();
+            window.fetchWalletData();
+          }, 2000);
+
+        } catch (err) {
+          showWithdrawAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
+        } finally {
+          btn.disabled = false;
+          btn.innerText = 'Confirm Withdrawal Request';
+        }
+      };
+
+      // =========================================================
+      //  REFERRAL CODE COPY
+      // =========================================================
       window.copyReferralCode = function() {
         const code = document.getElementById('ref-code-display').textContent;
         navigator.clipboard.writeText(code).then(() => {
@@ -743,14 +750,18 @@
         });
       };
 
-      // ✅ Logout
+      // =========================================================
+      //  LOGOUT
+      // =========================================================
       window.handleLogout = function() {
         localStorage.removeItem('kishan_token');
         localStorage.removeItem('kishan_user');
         window.location.href = 'index.html';
       };
 
-      // ✅ Initialize on page load
+      // =========================================================
+      //  INITIALISE ON PAGE LOAD
+      // =========================================================
       document.addEventListener('DOMContentLoaded', function() {
         displayUserInfo();
         setupNetworkAutoDetect('depositPhone', 'network');
@@ -758,6 +769,7 @@
 
         window.fetchBalance();
         window.fetchWalletData();
+        displayReferralLink(); // 🔗 Show the referral link
 
         // Auto-refresh every 60 seconds
         setInterval(() => {
