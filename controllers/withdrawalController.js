@@ -102,7 +102,7 @@ exports.requestWithdrawal = async (req, res) => {
   }
 };
 
-// ===== GET USER TRANSACTION HISTORY (ALL TYPES) =====
+// ===== GET ALL USER TRANSACTIONS (DEPOSITS, WITHDRAWALS, EARNINGS) =====
 exports.getTransactionHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -120,7 +120,7 @@ exports.getTransactionHistory = async (req, res) => {
   }
 };
 
-// ===== GET WITHDRAWAL HISTORY (legacy) =====
+// ===== GET WITHDRAWAL HISTORY (legacy, kept for backward compatibility) =====
 exports.getWithdrawalHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -138,7 +138,7 @@ exports.getWithdrawalHistory = async (req, res) => {
   }
 };
 
-// ===== (Helper) B2C Payout – used by admin approval (kept for compatibility) =====
+// ===== (Helper) B2C Payout – used by admin approval =====
 async function executeB2CPayoutAPI({ reference, phone, amount, network }) {
   // Mock – replace with actual aggregator call
   return new Promise((resolve) => {
