@@ -315,7 +315,7 @@
         if (!token) return false;
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
-          const expiry = payload.exp * 1000; // milliseconds
+          const expiry = payload.exp * 1000;
           return Date.now() < expiry;
         } catch (e) {
           return false;
@@ -332,7 +332,7 @@
       // Check token on load
       if (!getToken() || !isTokenValid()) {
         redirectToLogin('Your session has expired. Please log in again.');
-        return; // Stop further execution
+        return;
       }
 
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
@@ -603,6 +603,7 @@
         }
       };
 
+      // ✅ FIXED: Delete function with server error display
       window.deleteProgram = async function(id) {
         if (!confirm(`Delete program ID ${id}?`)) return;
         try {
@@ -610,11 +611,15 @@
             method: 'DELETE'
           });
           if (!res) return;
-          if (!res.ok) throw new Error('Deletion failed');
-          alert('Program deleted.');
+          const data = await res.json();
+          if (!res.ok) {
+            // Show the actual error message from the server
+            throw new Error(data.message || data.error || 'Deletion failed');
+          }
+          alert(data.message || 'Program deleted successfully.');
           loadPrograms();
         } catch (err) {
-          alert(err.message);
+          alert('❌ Error: ' + err.message);
         }
       };
 
