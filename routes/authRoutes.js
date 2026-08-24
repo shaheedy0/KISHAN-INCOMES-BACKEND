@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const { register, login, getProfile } = require('../controllers/authController');
+const { register, login, getProfile, getReferralStats } = require('../controllers/authController');
 const { verifyToken } = require('../middleware/authMiddleware');
 const rateLimit = require('express-rate-limit');
 
@@ -9,7 +9,7 @@ const rateLimit = require('express-rate-limit');
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  skipSuccessfulRequests: true, // only count failures
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
 });
@@ -47,5 +47,6 @@ const validate = (req, res, next) => {
 router.post('/register', registerRules, validate, register);
 router.post('/login', loginLimiter, login);
 router.get('/me', verifyToken, getProfile);
+router.get('/referral-stats', verifyToken, getReferralStats); // ✅ NEW
 
 module.exports = router;

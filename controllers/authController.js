@@ -88,7 +88,6 @@ exports.login = async (req, res) => {
     const balance = wallets.length > 0 ? wallets[0].balance : 0.00;
     const bonus_balance = wallets.length > 0 ? wallets[0].bonus_balance : 0.00;
 
-    // ✅ Use strong secret from .env, shorter expiry (1 hour)
     const token = jwt.sign(
       { id: user.id, role: user.role, phone: user.phone_number },
       process.env.JWT_SECRET,
@@ -137,5 +136,44 @@ exports.getProfile = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ===== ✅ NEW: GET REFERRAL STATS =====
+exports.getReferralStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [userRows] = await db.execute(
+      'SELECT referral_code FROM users WHERE id = ?',
+      [userId]
+    );
+    if (userRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const referralCode = userRows[0].referral_code;
+
+    // Count how many users used this referral code
+    const [countRows] = await db.execute(
+      'SELECT COUNT(*) AS count FROM users WHERE referred_by = ?',
+      [referralCode]
+    );
+
+    // Get list of referred users
+    const [referredUsers] = await db.execute(
+      'SELECT id, full_name, phone_number, created_at FROM users WHERE referred_by = ? ORDER BY created_at DESC',
+      [referralCode]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        total_referrals: countRows[0].count,
+        referred_users: referredUsers
+      }
+    });
+  } catch (error) {
+    console.error('Referral stats error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch referral stats.' });
   }
 };

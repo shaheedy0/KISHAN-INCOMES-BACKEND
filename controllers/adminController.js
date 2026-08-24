@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const { executeB2CPayoutAPI } = require('./withdrawalController'); // ✅ Import B2C helper
+const { executeB2CPayoutAPI } = require('./withdrawalController'); // ✅ FIXED: import B2C helper
 
 // ---------- Existing functions ----------
 exports.getAllActiveInvestments = async (req, res) => {
@@ -289,13 +289,11 @@ exports.approveDeposit = async (req, res) => {
 
     const tx = txRows[0];
 
-    // Credit user's wallet
     await connection.execute(
       `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [tx.amount, tx.user_id]
     );
 
-    // Update transaction status
     await connection.execute(
       `UPDATE transactions SET status = 'completed', external_ref = ? WHERE id = ?`,
       [`Admin approved ${new Date().toISOString()}`, id]
@@ -347,7 +345,6 @@ exports.approveWithdrawal = async (req, res) => {
 
     const tx = txRows[0];
 
-    // ✅ Call B2C payout API (mock)
     const payoutResult = await executeB2CPayoutAPI({
       reference: tx.reference,
       phone: tx.phone_number,
@@ -356,7 +353,6 @@ exports.approveWithdrawal = async (req, res) => {
     });
 
     if (payoutResult.status !== 'completed') {
-      // If payout fails, refund the user
       await connection.execute(
         `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
         [tx.amount, tx.user_id]
@@ -369,7 +365,6 @@ exports.approveWithdrawal = async (req, res) => {
       return res.status(502).json({ success: false, message: 'Payout failed. User has been refunded.' });
     }
 
-    // Mark transaction as completed
     await connection.execute(
       `UPDATE transactions SET status = 'completed', external_ref = ? WHERE id = ?`,
       [payoutResult.externalRef, id]
@@ -404,13 +399,11 @@ exports.rejectWithdrawal = async (req, res) => {
 
     const tx = txRows[0];
 
-    // Refund the user's wallet
     await connection.execute(
       `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
       [tx.amount, tx.user_id]
     );
 
-    // Update transaction status
     await connection.execute(
       `UPDATE transactions SET status = 'failed', external_ref = ? WHERE id = ?`,
       [`Admin rejected ${new Date().toISOString()}`, id]
