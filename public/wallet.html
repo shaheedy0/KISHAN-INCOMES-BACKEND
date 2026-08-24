@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kishan Incomes - My Member Wallet</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Auth Check -->
-  <script src="auth-check.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800">
 
@@ -29,7 +27,7 @@
         <p id="member-name" class="font-semibold text-sm text-emerald-100">Member</p>
         <p id="member-phone" class="text-[11px] text-emerald-300"></p>
       </div>
-      <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-xs font-semibold transition">Logout</button>
+      <button onclick="handleLogout()" class="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-xs font-semibold transition">Logout</button>
     </div>
   </header>
 
@@ -347,413 +345,428 @@
 
   </main>
 
+  <!-- ✅ All JavaScript consolidated here -->
   <script>
-    const API_BASE = 'https://kishan-incomes.onrender.com/api';
-    let pollInterval = null;
-    let currentLiquidBalance = 0;
+    (function() {
+      'use strict';
 
-    // Verify authentication on page load
-    window.addEventListener('DOMContentLoaded', async () => {
-      // Check auth before proceeding
-      const isAuthenticated = await checkAuth();
-      if (!isAuthenticated) {
-        return; // Redirect already handled
-      }
+      // ✅ Configuration
+      const API_BASE = 'https://kishan-incomes.onrender.com/api';
+      let pollInterval = null;
+      let currentLiquidBalance = 0;
 
+      // ✅ Auth Check
       const token = localStorage.getItem('kishan_token');
       const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
 
-      document.getElementById('member-name').textContent = user.full_name || 'Member';
-      document.getElementById('member-phone').textContent = user.phone_number || '';
-      document.getElementById('ref-code-display').textContent = user.referral_code || 'N/A';
+      if (!token || !user.id) {
+        alert('Please log in to view your member wallet.');
+        window.location.href = 'index.html';
+        return;
+      }
 
-      // Network auto-detection listeners
-      setupNetworkAutoDetect('depositPhone', 'network');
-      setupNetworkAutoDetect('withdrawalPhone', 'withdrawNetwork');
+      // ✅ Display user info
+      function displayUserInfo() {
+        document.getElementById('member-name').textContent = user.full_name || 'Member';
+        document.getElementById('member-phone').textContent = user.phone_number || '';
+        document.getElementById('ref-code-display').textContent = user.referral_code || 'N/A';
+      }
 
-      fetchBalance();
-      fetchWalletData();
+      // ✅ Setup network auto-detect
+      function setupNetworkAutoDetect(inputId, radioName) {
+        const phoneInput = document.getElementById(inputId);
+        if (phoneInput) {
+          phoneInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim().replace(/\D/g, '');
+            let prefix = val;
+            if (val.startsWith('256')) prefix = val.substring(3);
+            if (val.startsWith('0')) prefix = val.substring(1);
 
-      // Auto-refresh every 60 seconds
-      setInterval(() => {
-        fetchBalance();
-        fetchWalletData();
-      }, 60000);
-    });
-
-    function setupNetworkAutoDetect(inputId, radioName) {
-      const phoneInput = document.getElementById(inputId);
-      if (phoneInput) {
-        phoneInput.addEventListener('input', (e) => {
-          const val = e.target.value.trim().replace(/\D/g, '');
-          let prefix = val;
-          if (val.startsWith('256')) prefix = val.substring(3);
-          if (val.startsWith('0')) prefix = val.substring(1);
-
-          if (prefix.length >= 2) {
-            const p2 = prefix.substring(0, 2);
-            if (['77', '78', '76'].includes(p2)) {
-              document.querySelector(`input[name="${radioName}"][value="MTN"]`).checked = true;
-            } else if (['70', '75', '74'].includes(p2)) {
-              document.querySelector(`input[name="${radioName}"][value="AIRTEL"]`).checked = true;
+            if (prefix.length >= 2) {
+              const p2 = prefix.substring(0, 2);
+              if (['77', '78', '76'].includes(p2)) {
+                document.querySelector(`input[name="${radioName}"][value="MTN"]`).checked = true;
+              } else if (['70', '75', '74'].includes(p2)) {
+                document.querySelector(`input[name="${radioName}"][value="AIRTEL"]`).checked = true;
+              }
             }
+          });
+        }
+      }
+
+      // ✅ Fetch current balance
+      window.fetchBalance = async function() {
+        try {
+          const token = localStorage.getItem('kishan_token');
+          const res = await fetch(`${API_BASE}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error('Failed to fetch balance');
+          const data = await res.json();
+          if (data.success && data.user) {
+            const balance = Number(data.user.balance) || 0;
+            document.getElementById('balance-display').innerText = `UGX ${balance.toLocaleString()}`;
+            document.getElementById('modalAvailableBalance').innerText = `UGX ${balance.toLocaleString()}`;
+            currentLiquidBalance = balance;
+
+            const bonus = Number(data.user.bonus_balance) || 0;
+            document.getElementById('bonus-display').innerText = `UGX ${bonus.toLocaleString()}`;
           }
-        });
-      }
-    }
+        } catch (err) {
+          console.error('Error fetching balance:', err);
+        }
+      };
 
-    // Fetch current balance
-    async function fetchBalance() {
-      try {
+      // ✅ Deposit Modal Functions
+      window.openDepositModal = function() {
+        const modal = document.getElementById('depositModal');
+        modal.classList.remove('hidden');
+        resetModalState();
+
+        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+        if (user.phone_number) {
+          let rawPhone = user.phone_number.replace(/^256/, '');
+          document.getElementById('depositPhone').value = rawPhone;
+        }
+      };
+
+      window.closeDepositModal = function() {
+        document.getElementById('depositModal').classList.add('hidden');
+        if (pollInterval) clearInterval(pollInterval);
+      };
+
+      window.setQuickAmount = function(amt) {
+        document.getElementById('depositAmount').value = amt;
+      };
+
+      function resetModalState() {
+        document.getElementById('stkDepositForm').classList.remove('hidden');
+        document.getElementById('waitingState').classList.add('hidden');
+        document.getElementById('submitDepositBtn').disabled = false;
+        showAlert('', 'hidden');
+      }
+
+      function showAlert(msg, type) {
+        const alertBox = document.getElementById('modalAlert');
+        alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + type;
+        alertBox.textContent = msg;
+      }
+
+      // ✅ STK Push Deposit Submission
+      window.handleSTKSubmit = async function(event) {
+        event.preventDefault();
         const token = localStorage.getItem('kishan_token');
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to fetch balance');
-        const data = await res.json();
-        if (data.success && data.user) {
-          const balance = Number(data.user.balance) || 0;
-          document.getElementById('balance-display').innerText = `UGX ${balance.toLocaleString()}`;
-          document.getElementById('modalAvailableBalance').innerText = `UGX ${balance.toLocaleString()}`;
-          currentLiquidBalance = balance;
+        const phone = document.getElementById('depositPhone').value.trim();
+        const amount = document.getElementById('depositAmount').value.trim();
+        const network = document.querySelector('input[name="network"]:checked').value;
 
-          const bonus = Number(data.user.bonus_balance) || 0;
-          document.getElementById('bonus-display').innerText = `UGX ${bonus.toLocaleString()}`;
+        const btn = document.getElementById('submitDepositBtn');
+        btn.disabled = true;
+        btn.innerText = 'Initiating...';
+
+        try {
+          const response = await fetch(`${API_BASE}/deposit/stk-push`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ phone_number: phone, amount, network })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Deposit initiation failed');
+          }
+
+          document.getElementById('stkDepositForm').classList.add('hidden');
+          document.getElementById('waitingState').classList.remove('hidden');
+          document.getElementById('pollRef').textContent = data.reference;
+
+          startStatusPolling(data.reference, token);
+
+        } catch (err) {
+          btn.disabled = false;
+          btn.innerText = 'Send PIN Prompt To Phone';
+          showAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
         }
-      } catch (err) {
-        console.error('Error fetching balance:', err);
+      };
+
+      function startStatusPolling(reference, token) {
+        let checks = 0;
+        pollInterval = setInterval(async () => {
+          checks++;
+          if (checks > 20) {
+            clearInterval(pollInterval);
+            alert('Transaction timed out. If you entered your PIN, your balance will update automatically.');
+            window.closeDepositModal();
+            return;
+          }
+
+          try {
+            const res = await fetch(`${API_BASE}/deposit/status/${reference}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+
+            if (data.success && data.transaction) {
+              if (data.transaction.status === 'completed') {
+                clearInterval(pollInterval);
+                alert(`Deposit of UGX ${parseFloat(data.transaction.amount).toLocaleString()} received successfully!`);
+                window.closeDepositModal();
+                window.fetchBalance();
+                window.fetchWalletData();
+              } else if (data.transaction.status === 'failed') {
+                clearInterval(pollInterval);
+                alert('Deposit transaction failed or was cancelled by user.');
+                resetModalState();
+              }
+            }
+          } catch (e) {
+            console.error('Polling error:', e);
+          }
+        }, 3000);
       }
-    }
 
-    // Deposit Modal Functions
-    function openDepositModal() {
-      const modal = document.getElementById('depositModal');
-      modal.classList.remove('hidden');
-      resetModalState();
+      // ✅ Withdrawal Modal Functions
+      window.openWithdrawalModal = function() {
+        const modal = document.getElementById('withdrawalModal');
+        modal.classList.remove('hidden');
+        showWithdrawAlert('', 'hidden');
 
-      const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
-      if (user.phone_number) {
-        let rawPhone = user.phone_number.replace(/^256/, '');
-        document.getElementById('depositPhone').value = rawPhone;
-      }
-    }
+        document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
 
-    function closeDepositModal() {
-      document.getElementById('depositModal').classList.add('hidden');
-      if (pollInterval) clearInterval(pollInterval);
-    }
-
-    function setQuickAmount(amt) {
-      document.getElementById('depositAmount').value = amt;
-    }
-
-    function resetModalState() {
-      document.getElementById('stkDepositForm').classList.remove('hidden');
-      document.getElementById('waitingState').classList.add('hidden');
-      document.getElementById('submitDepositBtn').disabled = false;
-      showAlert('', 'hidden');
-    }
-
-    function showAlert(msg, type) {
-      const alertBox = document.getElementById('modalAlert');
-      alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + type;
-      alertBox.textContent = msg;
-    }
-
-    // STK Push Deposit Submission
-    async function handleSTKSubmit(event) {
-      event.preventDefault();
-      const token = localStorage.getItem('kishan_token');
-      const phone = document.getElementById('depositPhone').value.trim();
-      const amount = document.getElementById('depositAmount').value.trim();
-      const network = document.querySelector('input[name="network"]:checked').value;
-
-      const btn = document.getElementById('submitDepositBtn');
-      btn.disabled = true;
-      btn.innerText = 'Initiating...';
-
-      try {
-        const response = await fetch(`${API_BASE}/deposit/stk-push`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ phone_number: phone, amount, network })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Deposit initiation failed');
+        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+        if (user.phone_number) {
+          let rawPhone = user.phone_number.replace(/^256/, '');
+          document.getElementById('withdrawalPhone').value = rawPhone;
         }
+      };
 
-        document.getElementById('stkDepositForm').classList.add('hidden');
-        document.getElementById('waitingState').classList.remove('hidden');
-        document.getElementById('pollRef').textContent = data.reference;
+      window.closeWithdrawalModal = function() {
+        document.getElementById('withdrawalModal').classList.add('hidden');
+      };
 
-        startStatusPolling(data.reference, token);
+      window.setWithdrawQuickAmount = function(amt) {
+        document.getElementById('withdrawalAmount').value = amt;
+      };
 
-      } catch (err) {
-        btn.disabled = false;
-        btn.innerText = 'Send PIN Prompt To Phone';
-        showAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
+      window.setWithdrawMaxAmount = function() {
+        if (currentLiquidBalance > 0) {
+          document.getElementById('withdrawalAmount').value = currentLiquidBalance;
+        }
+      };
+
+      function showWithdrawAlert(msg, typeClass) {
+        const alertBox = document.getElementById('withdrawalAlert');
+        alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + typeClass;
+        alertBox.textContent = msg;
       }
-    }
 
-    function startStatusPolling(reference, token) {
-      let checks = 0;
-      pollInterval = setInterval(async () => {
-        checks++;
-        if (checks > 20) {
-          clearInterval(pollInterval);
-          alert('Transaction timed out. If you entered your PIN, your balance will update automatically.');
-          closeDepositModal();
+      // ✅ B2C Withdrawal Submission
+      window.handleWithdrawalSubmit = async function(event) {
+        event.preventDefault();
+        const token = localStorage.getItem('kishan_token');
+        const phone = document.getElementById('withdrawalPhone').value.trim();
+        const amount = parseFloat(document.getElementById('withdrawalAmount').value);
+        const network = document.querySelector('input[name="withdrawNetwork"]:checked').value;
+
+        if (amount > currentLiquidBalance) {
+          showWithdrawAlert(`Insufficient funds. Your available balance is UGX ${currentLiquidBalance.toLocaleString()}`, 'bg-red-50 text-red-800 border border-red-200');
           return;
         }
 
+        const btn = document.getElementById('submitWithdrawBtn');
+        btn.disabled = true;
+        btn.innerText = 'Processing Payout...';
+
         try {
-          const res = await fetch(`${API_BASE}/deposit/status/${reference}`, {
+          const response = await fetch(`${API_BASE}/withdrawal/request`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ phone_number: phone, amount, network })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Withdrawal request failed');
+          }
+
+          showWithdrawAlert(data.message, 'bg-emerald-50 text-emerald-800 border border-emerald-200');
+          
+          setTimeout(() => {
+            window.closeWithdrawalModal();
+            window.fetchBalance();
+            window.fetchWalletData();
+          }, 2000);
+
+        } catch (err) {
+          showWithdrawAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
+        } finally {
+          btn.disabled = false;
+          btn.innerText = 'Confirm Withdrawal Request';
+        }
+      };
+
+      // ✅ Fetch member investments
+      window.fetchWalletData = async function() {
+        const token = localStorage.getItem('kishan_token');
+
+        try {
+          const res = await fetch(`${API_BASE}/investments/my-investments`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const data = await res.json();
 
-          if (data.success && data.transaction) {
-            if (data.transaction.status === 'completed') {
-              clearInterval(pollInterval);
-              alert(`Deposit of UGX ${parseFloat(data.transaction.amount).toLocaleString()} received successfully!`);
-              closeDepositModal();
-              fetchBalance();
-              fetchWalletData();
-            } else if (data.transaction.status === 'failed') {
-              clearInterval(pollInterval);
-              alert('Deposit transaction failed or was cancelled by user.');
-              resetModalState();
-            }
+          if (!res.ok) throw new Error('Failed to fetch wallet investments.');
+          const investments = await res.json();
+
+          renderInvestments(investments);
+        } catch (err) {
+          console.error(err);
+          document.getElementById('investments-table-body').innerHTML = 
+            `<tr><td colspan="9" class="p-6 text-center text-red-500">${err.message}</td></tr>`;
+        }
+      };
+
+      // ✅ Render investments
+      function renderInvestments(investments) {
+        const tbody = document.getElementById('investments-table-body');
+        let totalLocked = 0;
+        let totalExpected = 0;
+        let totalEarned = 0;
+
+        if (!investments || !investments.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="9" class="p-8 text-center text-gray-400">
+                You have no active locked investments. <a href="index.html" class="text-emerald-700 underline font-semibold">Browse programs to start earning</a>.
+              </td>
+            </tr>`;
+          document.getElementById('locked-total-display').textContent = 'UGX 0';
+          document.getElementById('expected-total-display').textContent = 'UGX 0';
+          return;
+        }
+
+        tbody.innerHTML = investments.map(inv => {
+          const invested = parseFloat(inv.total_invested) || 0;
+          const dailyEarning = parseFloat(inv.daily_earning) || 0;
+          const currentEarnings = parseFloat(inv.current_earnings) || 0;
+          const expectedPayout = parseFloat(inv.expected_payout) || 0;
+          const roiPercentage = parseFloat(inv.roi_percentage) || 0;
+          const shares = parseInt(inv.shares_purchased) || 0;
+          const daysRemaining = parseInt(inv.days_remaining) || 0;
+          const progress = Math.min(parseInt(inv.progress_percentage) || 0, 100);
+          
+          if (inv.status === 'active') {
+            totalLocked += invested;
+            totalExpected += expectedPayout;
+            totalEarned += currentEarnings;
           }
-        } catch (e) {
-          console.error('Polling error:', e);
-        }
-      }, 3000);
-    }
 
-    // Withdrawal Modal Functions
-    function openWithdrawalModal() {
-      const modal = document.getElementById('withdrawalModal');
-      modal.classList.remove('hidden');
-      showWithdrawAlert('', 'hidden');
+          const endDate = new Date(inv.end_date);
+          const dailyDisplay = dailyEarning > 0 ? `UGX ${dailyEarning.toFixed(2)}` : 'N/A';
 
-      document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
+          let badgeClass = 'bg-emerald-100 text-emerald-800';
+          let statusText = '🟢 Active';
+          if (inv.status === 'matured') {
+            badgeClass = 'bg-blue-100 text-blue-800';
+            statusText = '✅ Matured';
+          }
+          if (inv.status === 'withdrawn') {
+            badgeClass = 'bg-gray-100 text-gray-600';
+            statusText = '📤 Withdrawn';
+          }
 
-      const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
-      if (user.phone_number) {
-        let rawPhone = user.phone_number.replace(/^256/, '');
-        document.getElementById('withdrawalPhone').value = rawPhone;
-      }
-    }
+          const progressColor = progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-blue-500' : 'bg-emerald-500';
 
-    function closeWithdrawalModal() {
-      document.getElementById('withdrawalModal').classList.add('hidden');
-    }
-
-    function setWithdrawQuickAmount(amt) {
-      document.getElementById('withdrawalAmount').value = amt;
-    }
-
-    function setWithdrawMaxAmount() {
-      if (currentLiquidBalance > 0) {
-        document.getElementById('withdrawalAmount').value = currentLiquidBalance;
-      }
-    }
-
-    function showWithdrawAlert(msg, typeClass) {
-      const alertBox = document.getElementById('withdrawalAlert');
-      alertBox.className = 'p-3 rounded-lg text-xs font-medium ' + typeClass;
-      alertBox.textContent = msg;
-    }
-
-    // B2C Withdrawal Submission
-    async function handleWithdrawalSubmit(event) {
-      event.preventDefault();
-      const token = localStorage.getItem('kishan_token');
-      const phone = document.getElementById('withdrawalPhone').value.trim();
-      const amount = parseFloat(document.getElementById('withdrawalAmount').value);
-      const network = document.querySelector('input[name="withdrawNetwork"]:checked').value;
-
-      if (amount > currentLiquidBalance) {
-        showWithdrawAlert(`Insufficient funds. Your available balance is UGX ${currentLiquidBalance.toLocaleString()}`, 'bg-red-50 text-red-800 border border-red-200');
-        return;
-      }
-
-      const btn = document.getElementById('submitWithdrawBtn');
-      btn.disabled = true;
-      btn.innerText = 'Processing Payout...';
-
-      try {
-        const response = await fetch(`${API_BASE}/withdrawal/request`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ phone_number: phone, amount, network })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Withdrawal request failed');
-        }
-
-        showWithdrawAlert(data.message, 'bg-emerald-50 text-emerald-800 border border-emerald-200');
-        
-        setTimeout(() => {
-          closeWithdrawalModal();
-          fetchBalance();
-          fetchWalletData();
-        }, 2000);
-
-      } catch (err) {
-        showWithdrawAlert(err.message, 'bg-red-50 text-red-800 border border-red-200');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'Confirm Withdrawal Request';
-      }
-    }
-
-    // Fetch member investments with enhanced data
-    async function fetchWalletData() {
-      const token = localStorage.getItem('kishan_token');
-
-      try {
-        const res = await fetch(`${API_BASE}/investments/my-investments`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!res.ok) throw new Error('Failed to fetch wallet investments.');
-        const investments = await res.json();
-
-        renderInvestments(investments);
-      } catch (err) {
-        console.error(err);
-        document.getElementById('investments-table-body').innerHTML = 
-          `<tr><td colspan="9" class="p-6 text-center text-red-500">${err.message}</td></tr>`;
-      }
-    }
-
-    // Enhanced render function with daily earnings and progress
-    function renderInvestments(investments) {
-      const tbody = document.getElementById('investments-table-body');
-      let totalLocked = 0;
-      let totalExpected = 0;
-      let totalEarned = 0;
-
-      if (!investments || !investments.length) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="9" class="p-8 text-center text-gray-400">
-              You have no active locked investments. <a href="index.html" class="text-emerald-700 underline font-semibold">Browse programs to start earning</a>.
-            </td>
-          </tr>`;
-        document.getElementById('locked-total-display').textContent = 'UGX 0';
-        document.getElementById('expected-total-display').textContent = 'UGX 0';
-        return;
-      }
-
-      tbody.innerHTML = investments.map(inv => {
-        const invested = parseFloat(inv.total_invested) || 0;
-        const dailyEarning = parseFloat(inv.daily_earning) || 0;
-        const currentEarnings = parseFloat(inv.current_earnings) || 0;
-        const expectedPayout = parseFloat(inv.expected_payout) || 0;
-        const roiPercentage = parseFloat(inv.roi_percentage) || 0;
-        const shares = parseInt(inv.shares_purchased) || 0;
-        const daysRemaining = parseInt(inv.days_remaining) || 0;
-        const daysElapsed = parseInt(inv.days_elapsed) || 0;
-        const progress = Math.min(parseInt(inv.progress_percentage) || 0, 100);
-        
-        if (inv.status === 'active') {
-          totalLocked += invested;
-          totalExpected += expectedPayout;
-          totalEarned += currentEarnings;
-        }
-
-        const endDate = new Date(inv.end_date);
-        const dailyDisplay = dailyEarning > 0 ? `UGX ${dailyEarning.toFixed(2)}` : 'N/A';
-
-        let badgeClass = 'bg-emerald-100 text-emerald-800';
-        let statusText = '🟢 Active';
-        if (inv.status === 'matured') {
-          badgeClass = 'bg-blue-100 text-blue-800';
-          statusText = '✅ Matured';
-        }
-        if (inv.status === 'withdrawn') {
-          badgeClass = 'bg-gray-100 text-gray-600';
-          statusText = '📤 Withdrawn';
-        }
-
-        const progressColor = progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-blue-500' : 'bg-emerald-500';
-
-        return `
-          <tr class="hover:bg-gray-50 transition">
-            <td class="p-4 font-bold text-gray-800">${inv.title || 'N/A'}</td>
-            <td class="p-4">
-              <span class="font-semibold text-gray-700">${shares} Shares</span>
-              <div class="text-[11px] text-gray-400">UGX ${invested.toLocaleString()}</div>
-            </td>
-            <td class="p-4 text-emerald-700 font-bold">+${roiPercentage}%</td>
-            <td class="p-4 font-semibold text-amber-600">${dailyDisplay}</td>
-            <td class="p-4 font-bold text-green-600">UGX ${currentEarnings.toFixed(2)}</td>
-            <td class="p-4 font-extrabold text-gray-800">UGX ${expectedPayout.toFixed(2)}</td>
-            <td class="p-4">
-              <div class="flex items-center gap-2">
-                <div class="w-24 bg-gray-200 rounded-full h-2">
-                  <div class="${progressColor} h-2 rounded-full" style="width: ${progress}%"></div>
+          return `
+            <tr class="hover:bg-gray-50 transition">
+              <td class="p-4 font-bold text-gray-800">${inv.title || 'N/A'}</td>
+              <td class="p-4">
+                <span class="font-semibold text-gray-700">${shares} Shares</span>
+                <div class="text-[11px] text-gray-400">UGX ${invested.toLocaleString()}</div>
+              </td>
+              <td class="p-4 text-emerald-700 font-bold">+${roiPercentage}%</td>
+              <td class="p-4 font-semibold text-amber-600">${dailyDisplay}</td>
+              <td class="p-4 font-bold text-green-600">UGX ${currentEarnings.toFixed(2)}</td>
+              <td class="p-4 font-extrabold text-gray-800">UGX ${expectedPayout.toFixed(2)}</td>
+              <td class="p-4">
+                <div class="flex items-center gap-2">
+                  <div class="w-24 bg-gray-200 rounded-full h-2">
+                    <div class="${progressColor} h-2 rounded-full" style="width: ${progress}%"></div>
+                  </div>
+                  <span class="text-[10px] font-semibold text-gray-600">${progress}%</span>
                 </div>
-                <span class="text-[10px] font-semibold text-gray-600">${progress}%</span>
-              </div>
-              <div class="text-[10px] text-gray-400 mt-1">${daysRemaining} days remaining</div>
-            </td>
-            <td class="p-4 text-gray-500">${endDate.toLocaleDateString()}</td>
-            <td class="p-4 text-center">
-              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}">
-                ${statusText}
-              </span>
-            </td>
-          </tr>
-        `;
-      }).join('');
+                <div class="text-[10px] text-gray-400 mt-1">${daysRemaining} days remaining</div>
+              </td>
+              <td class="p-4 text-gray-500">${endDate.toLocaleDateString()}</td>
+              <td class="p-4 text-center">
+                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}">
+                  ${statusText}
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join('');
 
-      // Update summary cards
-      document.getElementById('locked-total-display').textContent = `UGX ${totalLocked.toLocaleString()}`;
-      document.getElementById('expected-total-display').textContent = `UGX ${totalExpected.toFixed(2)}`;
-      
-      // Show earnings if any
-      const existingEarned = document.querySelector('.earned-display');
-      if (totalEarned > 0) {
-        if (!existingEarned) {
-          const parent = document.getElementById('expected-total-display')?.parentElement;
-          if (parent) {
-            const earnedDisplay = document.createElement('p');
-            earnedDisplay.className = 'text-[11px] text-green-600 font-bold mt-0.5 earned-display';
-            earnedDisplay.textContent = `📈 Earned so far: UGX ${totalEarned.toFixed(2)}`;
-            parent.appendChild(earnedDisplay);
+        document.getElementById('locked-total-display').textContent = `UGX ${totalLocked.toLocaleString()}`;
+        document.getElementById('expected-total-display').textContent = `UGX ${totalExpected.toFixed(2)}`;
+        
+        const existingEarned = document.querySelector('.earned-display');
+        if (totalEarned > 0) {
+          if (!existingEarned) {
+            const parent = document.getElementById('expected-total-display')?.parentElement;
+            if (parent) {
+              const earnedDisplay = document.createElement('p');
+              earnedDisplay.className = 'text-[11px] text-green-600 font-bold mt-0.5 earned-display';
+              earnedDisplay.textContent = `📈 Earned so far: UGX ${totalEarned.toFixed(2)}`;
+              parent.appendChild(earnedDisplay);
+            }
+          } else {
+            existingEarned.textContent = `📈 Earned so far: UGX ${totalEarned.toFixed(2)}`;
           }
         } else {
-          existingEarned.textContent = `📈 Earned so far: UGX ${totalEarned.toFixed(2)}`;
+          if (existingEarned) existingEarned.remove();
         }
-      } else {
-        if (existingEarned) existingEarned.remove();
       }
-    }
 
-    function copyReferralCode() {
-      const code = document.getElementById('ref-code-display').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        alert(`Referral code ${code} copied to clipboard!`);
+      // ✅ Copy referral code
+      window.copyReferralCode = function() {
+        const code = document.getElementById('ref-code-display').textContent;
+        navigator.clipboard.writeText(code).then(() => {
+          alert(`Referral code ${code} copied to clipboard!`);
+        });
+      };
+
+      // ✅ Logout
+      window.handleLogout = function() {
+        localStorage.removeItem('kishan_token');
+        localStorage.removeItem('kishan_user');
+        window.location.href = 'index.html';
+      };
+
+      // ✅ Initialize on page load
+      document.addEventListener('DOMContentLoaded', function() {
+        displayUserInfo();
+        setupNetworkAutoDetect('depositPhone', 'network');
+        setupNetworkAutoDetect('withdrawalPhone', 'withdrawNetwork');
+
+        window.fetchBalance();
+        window.fetchWalletData();
+
+        // Auto-refresh every 60 seconds
+        setInterval(() => {
+          window.fetchBalance();
+          window.fetchWalletData();
+        }, 60000);
       });
-    }
 
-    // Logout is defined in auth-check.js
+    })();
   </script>
 </body>
 </html>
