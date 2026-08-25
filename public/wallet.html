@@ -617,7 +617,7 @@
       }
 
       // =========================================================
-      //  ✅ TRANSFER BONUS TO MAIN
+      //  ✅ TRANSFER BONUS TO MAIN (FIXED – now attached to window)
       // =========================================================
       async function transferBonusToMain() {
         const btn = document.getElementById('transferBonusBtn');
@@ -648,8 +648,8 @@
           if (!res.ok) throw new Error(data.message || 'Transfer failed');
 
           alert(data.message);
-          await fetchBalance();
-          await fetchWalletData();
+          await window.fetchBalance();
+          await window.fetchWalletData();
         } catch (err) {
           alert('Error: ' + err.message);
         } finally {
@@ -657,6 +657,9 @@
           btn.textContent = '💰 Transfer Bonus to Main Wallet';
         }
       }
+
+      // 🔑 This is the fix – attach the function to window so the onclick works
+      window.transferBonusToMain = transferBonusToMain;
 
       // =========================================================
       //  DEPOSIT MODAL
