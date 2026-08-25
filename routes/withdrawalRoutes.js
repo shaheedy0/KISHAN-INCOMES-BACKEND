@@ -6,7 +6,7 @@ const { verifyToken } = require('../middleware/authMiddleware');
 // Authenticated withdrawal endpoints
 router.post('/request', verifyToken, withdrawalController.requestWithdrawal);
 router.get('/history', verifyToken, withdrawalController.getTransactionHistory);
-// ✅ NEW: Transfer bonus to main wallet
+// ✅ Bonus transfer route
 router.post('/transfer-bonus', verifyToken, withdrawalController.transferBonusToMain);
 
 module.exports = router;

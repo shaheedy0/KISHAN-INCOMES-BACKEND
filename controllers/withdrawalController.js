@@ -14,7 +14,7 @@ function formatUGPhoneNumber(phone) {
   return cleaned;
 }
 
-// ===== REQUEST WITHDRAWAL (PENDING, NO AUTO‑COMPLETE) =====
+// ===== REQUEST WITHDRAWAL (PENDING) =====
 exports.requestWithdrawal = async (req, res) => {
   let connection;
 
@@ -30,8 +30,8 @@ exports.requestWithdrawal = async (req, res) => {
     const MIN_WITHDRAWAL = 1000;
 
     if (isNaN(withdrawAmount) || withdrawAmount < MIN_WITHDRAWAL) {
-      return res.status(400).json({ 
-        message: `Minimum withdrawal amount is UGX ${MIN_WITHDRAWAL.toLocaleString()}.` 
+      return res.status(400).json({
+        message: `Minimum withdrawal amount is UGX ${MIN_WITHDRAWAL.toLocaleString()}.`
       });
     }
 
@@ -59,8 +59,8 @@ exports.requestWithdrawal = async (req, res) => {
 
     if (currentBalance < withdrawAmount) {
       await connection.rollback();
-      return res.status(400).json({ 
-        message: `Insufficient wallet balance. Available: UGX ${currentBalance.toLocaleString()}` 
+      return res.status(400).json({
+        message: `Insufficient wallet balance. Available: UGX ${currentBalance.toLocaleString()}`
       });
     }
 
@@ -90,8 +90,8 @@ exports.requestWithdrawal = async (req, res) => {
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('Withdrawal Processing Error:', error.message);
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: error.message || 'Internal server error processing withdrawal.'
     });
   } finally {
@@ -135,15 +135,17 @@ exports.getWithdrawalHistory = async (req, res) => {
   }
 };
 
-// ===== ✅ NEW: TRANSFER BONUS TO MAIN WALLET =====
+// ===== ✅ TRANSFER BONUS TO MAIN WALLET (FIXED) =====
 exports.transferBonusToMain = async (req, res) => {
   let connection;
   try {
     const userId = req.user.id;
+    console.log(`[Bonus Transfer] User ${userId} initiated transfer.`);
 
     connection = await db.getConnection();
     await connection.beginTransaction();
 
+    // 1. Get current bonus balance
     const [walletRows] = await connection.execute(
       `SELECT bonus_balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [userId]
@@ -151,22 +153,26 @@ exports.transferBonusToMain = async (req, res) => {
 
     if (walletRows.length === 0) {
       await connection.rollback();
+      console.log(`[Bonus Transfer] Wallet not found for user ${userId}.`);
       return res.status(404).json({ success: false, message: 'Wallet not found.' });
     }
 
     const bonusBalance = parseFloat(walletRows[0].bonus_balance);
+    console.log(`[Bonus Transfer] Current bonus balance: UGX ${bonusBalance}`);
+
     if (bonusBalance <= 0) {
       await connection.rollback();
+      console.log(`[Bonus Transfer] No bonus balance for user ${userId}.`);
       return res.status(400).json({ success: false, message: 'No bonus balance to transfer.' });
     }
 
-    // Move bonus to main balance
+    // 2. Transfer bonus to main balance
     await connection.execute(
       `UPDATE wallets SET balance = balance + ?, bonus_balance = bonus_balance - ? WHERE user_id = ?`,
       [bonusBalance, bonusBalance, userId]
     );
 
-    // Record transaction
+    // 3. Record transaction
     const ref = `BONUS-TRANSFER-${Date.now()}`;
     await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status, external_ref)
@@ -175,6 +181,7 @@ exports.transferBonusToMain = async (req, res) => {
     );
 
     await connection.commit();
+    console.log(`[Bonus Transfer] User ${userId} transferred UGX ${bonusBalance} to main wallet.`);
 
     return res.json({
       success: true,
@@ -183,14 +190,14 @@ exports.transferBonusToMain = async (req, res) => {
     });
   } catch (error) {
     if (connection) await connection.rollback();
-    console.error('Transfer bonus error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to transfer bonus.' });
+    console.error('[Bonus Transfer Error]:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to transfer bonus. ' + error.message });
   } finally {
     if (connection) connection.release();
   }
 };
 
-// ===== (Helper) B2C Payout – used by admin approval =====
+// ===== (Helper) B2C Payout =====
 async function executeB2CPayoutAPI({ reference, phone, amount, network }) {
   return new Promise((resolve) => {
     setTimeout(() => {
