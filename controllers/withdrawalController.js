@@ -45,7 +45,6 @@ exports.requestWithdrawal = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // Lock wallet
     const [walletRows] = await connection.execute(
       `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [userId]
@@ -65,13 +64,11 @@ exports.requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Deduct balance (hold funds)
     await connection.execute(
       `UPDATE wallets SET balance = balance - ? WHERE user_id = ?`,
       [withdrawAmount, userId]
     );
 
-    // Create pending transaction (status = 'pending')
     const [txResult] = await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
        VALUES (?, ?, ?, ?, ?, 'withdrawal', 'pending')`,
@@ -102,7 +99,7 @@ exports.requestWithdrawal = async (req, res) => {
   }
 };
 
-// ===== GET ALL USER TRANSACTIONS (DEPOSITS, WITHDRAWALS, EARNINGS) =====
+// ===== GET ALL USER TRANSACTIONS =====
 exports.getTransactionHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -120,7 +117,7 @@ exports.getTransactionHistory = async (req, res) => {
   }
 };
 
-// ===== GET WITHDRAWAL HISTORY (legacy, kept for backward compatibility) =====
+// ===== GET WITHDRAWAL HISTORY (legacy) =====
 exports.getWithdrawalHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -138,9 +135,63 @@ exports.getWithdrawalHistory = async (req, res) => {
   }
 };
 
+// ===== ✅ NEW: TRANSFER BONUS TO MAIN WALLET =====
+exports.transferBonusToMain = async (req, res) => {
+  let connection;
+  try {
+    const userId = req.user.id;
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [walletRows] = await connection.execute(
+      `SELECT bonus_balance FROM wallets WHERE user_id = ? FOR UPDATE`,
+      [userId]
+    );
+
+    if (walletRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Wallet not found.' });
+    }
+
+    const bonusBalance = parseFloat(walletRows[0].bonus_balance);
+    if (bonusBalance <= 0) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'No bonus balance to transfer.' });
+    }
+
+    // Move bonus to main balance
+    await connection.execute(
+      `UPDATE wallets SET balance = balance + ?, bonus_balance = bonus_balance - ? WHERE user_id = ?`,
+      [bonusBalance, bonusBalance, userId]
+    );
+
+    // Record transaction
+    const ref = `BONUS-TRANSFER-${Date.now()}`;
+    await connection.execute(
+      `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status, external_ref)
+       VALUES (?, ?, 'SYSTEM', 'BONUS', ?, 'bonus_transfer', 'completed', ?)`,
+      [userId, ref, bonusBalance, `Bonus balance transferred to main wallet`]
+    );
+
+    await connection.commit();
+
+    return res.json({
+      success: true,
+      message: `UGX ${bonusBalance.toLocaleString()} transferred from bonus to main balance.`,
+      newBalance: bonusBalance
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Transfer bonus error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to transfer bonus.' });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 // ===== (Helper) B2C Payout – used by admin approval =====
 async function executeB2CPayoutAPI({ reference, phone, amount, network }) {
-  // Mock – replace with actual aggregator call
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({

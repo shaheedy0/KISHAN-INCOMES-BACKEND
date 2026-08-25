@@ -56,7 +56,7 @@
         </div>
       </div>
 
-      <!-- Bonus & Referral Earnings -->
+      <!-- Bonus & Referral Earnings (with Transfer Button) -->
       <div class="bg-white p-5 rounded-xl shadow-md border border-gray-200 flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-start mb-2">
@@ -66,6 +66,11 @@
           <div class="text-3xl font-extrabold text-amber-600 mb-1" id="bonus-display">UGX 0</div>
           <p class="text-xs text-gray-500">Earned when invited members make their first deposit.</p>
         </div>
+        <!-- ✅ Transfer Bonus Button -->
+        <button onclick="transferBonusToMain()" id="transferBonusBtn"
+                class="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 rounded-lg transition">
+          💰 Transfer Bonus to Main Wallet
+        </button>
       </div>
 
       <!-- Total Locked Funds in Investments -->
@@ -82,7 +87,7 @@
 
     </div>
 
-    <!-- 🔗 NEW: Referral Link Section -->
+    <!-- 🔗 Referral Link Section -->
     <div id="referral-section" class="bg-white rounded-2xl shadow-md border border-gray-200 p-4">
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
@@ -103,7 +108,7 @@
       </div>
     </div>
 
-    <!-- Section 2: Referral Code Sharing Banner (existing) -->
+    <!-- Section 2: Referral Code Sharing Banner -->
     <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="space-y-1 text-center sm:text-left">
         <h3 class="text-sm font-bold text-emerald-900">Invite & Earn Referral Bonuses</h3>
@@ -115,7 +120,7 @@
       </div>
     </div>
 
-    <!-- Section 3: Active Locked Investments Table/List -->
+    <!-- Section 3: Active Locked Investments Table -->
     <section class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
       <div class="p-5 border-b border-gray-100 flex justify-between items-center flex-wrap gap-2">
         <div>
@@ -151,7 +156,7 @@
       </div>
     </section>
 
-    <!-- ===== NEW: TRANSACTION HISTORY SECTION ===== -->
+    <!-- Transaction History Section -->
     <section class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden mt-8">
       <div class="p-5 border-b border-gray-100 flex justify-between items-center">
         <div>
@@ -180,7 +185,7 @@
       </div>
     </section>
 
-    <!-- ===== Mobile Money Deposit Modal ===== -->
+    <!-- Deposit Modal -->
     <div id="depositModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
         <div class="bg-emerald-900 text-white px-6 py-4 flex justify-between items-center">
@@ -271,7 +276,7 @@
       </div>
     </div>
 
-    <!-- ===== Mobile Money Withdrawal Modal ===== -->
+    <!-- Withdrawal Modal -->
     <div id="withdrawalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transition-all transform scale-100">
         <div class="bg-amber-900 text-white px-6 py-4 flex justify-between items-center">
@@ -575,7 +580,7 @@
       }
 
       // =========================================================
-      //  TRANSACTION HISTORY (NEW)
+      //  TRANSACTION HISTORY
       // =========================================================
       async function loadTransactionHistory() {
         const tbody = document.getElementById('transactionsHistoryBody');
@@ -608,6 +613,48 @@
           }
         } catch (err) {
           tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">${err.message}</td></tr>`;
+        }
+      }
+
+      // =========================================================
+      //  ✅ TRANSFER BONUS TO MAIN
+      // =========================================================
+      async function transferBonusToMain() {
+        const btn = document.getElementById('transferBonusBtn');
+        const bonusDisplay = document.getElementById('bonus-display');
+        const currentBonus = parseFloat(bonusDisplay.textContent.replace(/[^0-9.]/g, '')) || 0;
+
+        if (currentBonus <= 0) {
+          alert('You have no bonus balance to transfer.');
+          return;
+        }
+
+        if (!confirm(`Transfer UGX ${currentBonus.toLocaleString()} from bonus to main wallet?`)) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+
+        try {
+          const token = localStorage.getItem('kishan_token');
+          const res = await fetch(`${API_BASE}/withdrawal/transfer-bonus`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Transfer failed');
+
+          alert(data.message);
+          await fetchBalance();
+          await fetchWalletData();
+        } catch (err) {
+          alert('Error: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '💰 Transfer Bonus to Main Wallet';
         }
       }
 
@@ -838,7 +885,7 @@
         window.fetchBalance();
         window.fetchWalletData();
         displayReferralLink();
-        loadTransactionHistory(); // ✅ Load transaction history
+        loadTransactionHistory();
 
         // Auto-refresh every 60 seconds
         setInterval(() => {
