@@ -41,24 +41,28 @@ router.patch('/users/:id/role', async (req, res) => {
   }
 });
 
-// Programs
+// Programs – ✅ UPDATED: includes program_type
 router.post('/programs', async (req, res) => {
-  const { title, share_price, roi_percentage, duration_days, image_url, description } = req.body;
+  const { title, share_price, roi_percentage, duration_days, image_url, description, program_type } = req.body;
   if (!title || share_price === undefined || roi_percentage === undefined || !duration_days) {
     return res.status(400).json({ message: 'Missing required program fields' });
   }
+
+  const type = (program_type === 'flexi') ? 'flexi' : 'locked';
+
   try {
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, share_price, roi_percentage, duration_days, image_url, description, status) 
-       VALUES (?, ?, ?, ?, ?, ?, 'active')`,
+       (title, share_price, roi_percentage, duration_days, image_url, description, program_type, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
       [
-        title, 
+        title,
         parseFloat(share_price),
-        parseFloat(roi_percentage), 
-        parseInt(duration_days), 
-        image_url || null, 
-        description || null
+        parseFloat(roi_percentage),
+        parseInt(duration_days),
+        image_url || null,
+        description || null,
+        type
       ]
     );
     res.status(201).json({ success: true, message: 'Program created successfully', programId: result.insertId });
