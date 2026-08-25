@@ -3,21 +3,21 @@ const fs = require('fs');
 const path = require('path');
 
 exports.createProgram = async (req, res) => {
-  const { title, description, share_price, roi_percentage, duration_days, image_url } = req.body;
+  const { title, description, share_price, roi_percentage, duration_days, image_url, program_type } = req.body;
 
   if (!title || share_price === undefined || !roi_percentage || !duration_days) {
     return res.status(400).json({ message: 'Title, price per share, ROI, and duration are required.' });
   }
 
   const imageUrl = req.file ? `/uploads/programs/${req.file.filename}` : (image_url || null);
+  const type = (program_type === 'flexi') ? 'flexi' : 'locked'; // default locked
 
   try {
-    // ✅ Removed is_active – only status
     const [result] = await db.execute(
       `INSERT INTO investment_programs 
-       (title, description, image_url, share_price, roi_percentage, duration_days, status) 
-       VALUES (?, ?, ?, ?, ?, ?, 'active')`,
-      [title, description || '', imageUrl, parseFloat(share_price), parseFloat(roi_percentage), parseInt(duration_days)]
+       (title, description, image_url, share_price, roi_percentage, duration_days, program_type, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [title, description || '', imageUrl, parseFloat(share_price), parseFloat(roi_percentage), parseInt(duration_days), type]
     );
 
     res.status(201).json({
@@ -34,7 +34,7 @@ exports.createProgram = async (req, res) => {
 
 exports.updateProgram = async (req, res) => {
   const { id } = req.params;
-  const { title, description, share_price, roi_percentage, duration_days, status, image_url } = req.body;
+  const { title, description, share_price, roi_percentage, duration_days, status, image_url, program_type } = req.body;
 
   try {
     const [existing] = await db.execute('SELECT * FROM investment_programs WHERE id = ?', [id]);
@@ -57,11 +57,12 @@ exports.updateProgram = async (req, res) => {
       imageUrlToSave = image_url;
     }
 
-    // ✅ Removed is_active, added status if provided
+    const type = (program_type === 'flexi') ? 'flexi' : 'locked';
+
     await db.execute(
       `UPDATE investment_programs 
        SET title = ?, description = ?, image_url = ?, share_price = ?, 
-           roi_percentage = ?, duration_days = ?, status = ? 
+           roi_percentage = ?, duration_days = ?, program_type = ?, status = ? 
        WHERE id = ?`,
       [
         title || currentProgram.title,
@@ -70,7 +71,8 @@ exports.updateProgram = async (req, res) => {
         share_price !== undefined ? share_price : currentProgram.share_price,
         roi_percentage || currentProgram.roi_percentage,
         duration_days || currentProgram.duration_days,
-        status || currentProgram.status,  // default to existing status
+        type,
+        status || currentProgram.status,
         id
       ]
     );
@@ -87,7 +89,7 @@ exports.getAllPrograms = async (req, res) => {
   try {
     const [programs] = await db.execute(
       `SELECT id, title, description, share_price, 
-              roi_percentage, duration_days, image_url 
+              roi_percentage, duration_days, program_type, image_url 
        FROM investment_programs 
        WHERE status = 'active'
        ORDER BY id DESC`

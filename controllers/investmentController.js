@@ -5,7 +5,7 @@ exports.getActivePrograms = async (req, res) => {
     const [programs] = await db.execute(
       `SELECT id, title, description, 
               COALESCE(share_price) AS share_price, 
-              roi_percentage, duration_days, image_url 
+              roi_percentage, duration_days, program_type, image_url 
        FROM investment_programs 
        WHERE status = 'active'
        ORDER BY id DESC`
@@ -36,9 +36,8 @@ exports.purchaseShares = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. Lock and fetch the program
     const [programRows] = await connection.execute(
-      `SELECT id, title, share_price, roi_percentage, duration_days, status
+      `SELECT id, title, share_price, roi_percentage, duration_days, program_type, status
        FROM investment_programs 
        WHERE id = ? AND status = 'active'
        FOR UPDATE`,
@@ -52,7 +51,7 @@ exports.purchaseShares = async (req, res) => {
 
     const program = programRows[0];
 
-    // 2. Check active shares limit (max 3)
+    // Check active shares limit (max 3)
     const [activeShares] = await connection.execute(
       `SELECT SUM(shares_purchased) AS total_shares
        FROM user_investments
@@ -71,12 +70,10 @@ exports.purchaseShares = async (req, res) => {
       });
     }
 
-    // 3. Calculate cost and expected payout
     const totalCost = parseFloat(program.share_price) * sharesToBuy;
     const roiMultiplier = 1 + (parseFloat(program.roi_percentage) / 100);
     const expectedPayout = totalCost * roiMultiplier;
 
-    // 4. Lock and check wallet balance
     const [walletRows] = await connection.execute(
       `SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`,
       [userId]
@@ -96,27 +93,28 @@ exports.purchaseShares = async (req, res) => {
       });
     }
 
-    // 5. Deduct from wallet
+    // Deduct from wallet
     await connection.execute(
       `UPDATE wallets SET balance = balance - ? WHERE user_id = ?`,
       [totalCost, userId]
     );
 
-    // 6. Create investment record with last_credited_date = start_date
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
     const dailyEarning = expectedPayout / program.duration_days;
 
+    // Insert investment with pending_earnings = 0
     await connection.execute(
       `INSERT INTO user_investments (
         user_id, program_id, shares_purchased, total_invested, 
-        expected_payout, daily_earning, start_date, end_date, status, last_credited_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+        expected_payout, daily_earning, pending_earnings,
+        start_date, end_date, status, last_credited_date
+      ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'active', ?)`,
       [userId, program.id, sharesToBuy, totalCost, expectedPayout, dailyEarning, startDate, endDate, startDate]
     );
 
-    // 7. Record transaction
+    // Record transaction
     const ref = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
@@ -150,11 +148,13 @@ exports.getMyInvestments = async (req, res) => {
       `SELECT 
         ui.id, 
         p.title, 
+        p.program_type,
         ui.shares_purchased, 
         ui.total_invested, 
         p.roi_percentage, 
         ui.expected_payout,
         ui.daily_earning,
+        ui.pending_earnings,
         ui.start_date, 
         ui.end_date, 
         ui.status,
@@ -171,8 +171,19 @@ exports.getMyInvestments = async (req, res) => {
       if (inv.status === 'active') {
         const daysElapsed = Math.max(0, inv.days_elapsed || 0);
         const daysRemaining = Math.max(0, inv.days_remaining || 0);
-        const currentEarnings = inv.daily_earning * daysElapsed;
-        const totalPayout = inv.total_invested + currentEarnings;
+        let currentEarnings = 0;
+        let totalPayout = inv.total_invested;
+
+        if (inv.program_type === 'flexi') {
+          // For flexi, earnings have been paid to wallet; we show total accumulated so far
+          currentEarnings = inv.daily_earning * daysElapsed;
+          totalPayout = inv.total_invested + currentEarnings; // expected total (already paid daily)
+        } else {
+          // For locked, earnings accumulate in pending_earnings
+          currentEarnings = parseFloat(inv.pending_earnings) || 0;
+          totalPayout = inv.total_invested + currentEarnings;
+        }
+
         return {
           ...inv,
           days_elapsed: daysElapsed,
@@ -201,9 +212,13 @@ exports.matureInvestments = async (req, res) => {
     await connection.beginTransaction();
 
     const [matured] = await connection.execute(
-      `SELECT id, user_id, total_invested, expected_payout, daily_earning, end_date
-       FROM user_investments 
-       WHERE status = 'active' AND end_date <= NOW()`
+      `SELECT 
+        ui.id, ui.user_id, ui.total_invested, ui.expected_payout, 
+        ui.daily_earning, ui.pending_earnings, ui.end_date,
+        p.program_type
+       FROM user_investments ui
+       JOIN investment_programs p ON ui.program_id = p.id
+       WHERE ui.status = 'active' AND ui.end_date <= NOW()`
     );
 
     if (matured.length === 0) {
@@ -215,16 +230,23 @@ exports.matureInvestments = async (req, res) => {
     let totalPayout = 0;
 
     for (const inv of matured) {
-      // At maturity, credit the principal (total_invested) because daily earnings have been credited daily.
-      // But to be safe, we can credit the remaining balance to reach expected_payout.
-      // We'll credit the principal amount, as earnings have been paid daily.
-      const payoutAmount = parseFloat(inv.total_invested);
+      let payoutAmount = 0;
+      if (inv.program_type === 'flexi') {
+        // For flexi, earnings were already credited daily; only return principal
+        payoutAmount = parseFloat(inv.total_invested);
+      } else {
+        // For locked, credit principal + accumulated pending_earnings
+        const pending = parseFloat(inv.pending_earnings) || 0;
+        payoutAmount = parseFloat(inv.total_invested) + pending;
+      }
 
+      // Credit to wallet
       await connection.execute(
         `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
         [payoutAmount, inv.user_id]
       );
 
+      // Mark investment as matured
       await connection.execute(
         `UPDATE user_investments SET status = 'matured', matured_at = NOW() WHERE id = ?`,
         [inv.id]
@@ -233,20 +255,20 @@ exports.matureInvestments = async (req, res) => {
       const ref = `MAT-${inv.id}-${Date.now()}`;
       await connection.execute(
         `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
-         VALUES (?, ?, 'SYSTEM', 'INTERNAL', ?, 'maturity_payout', 'completed')`,
+         VALUES (?, ?, 'SYSTEM', 'MATURITY', ?, 'maturity_payout', 'completed')`,
         [inv.user_id, ref, payoutAmount]
       );
 
       totalMatured++;
       totalPayout += payoutAmount;
-      console.log(`[Maturity] User ${inv.user_id} received UGX ${payoutAmount} principal from matured investment ${inv.id}`);
+      console.log(`[Maturity] User ${inv.user_id} received UGX ${payoutAmount} from matured investment ${inv.id}`);
     }
 
     await connection.commit();
 
     return res.status(200).json({
       success: true,
-      message: `Matured ${totalMatured} investments, total principal payout UGX ${totalPayout.toLocaleString()}`,
+      message: `Matured ${totalMatured} investments, total payout UGX ${totalPayout.toLocaleString()}`,
       matured_count: totalMatured,
       total_payout: totalPayout
     });

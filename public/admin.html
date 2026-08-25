@@ -36,7 +36,6 @@
       <button onclick="switchTab('programs')" id="tab-programs" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📈 Programs</button>
       <button onclick="switchTab('investments')" id="tab-investments" class="tab-inactive px-4 py-2 text-sm font-semibold transition">💼 Active Investments</button>
       <button onclick="switchTab('announcements')" id="tab-announcements" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📢 Announcements</button>
-      <!-- ✅ NEW TAB -->
       <button onclick="switchTab('transactions')" id="tab-transactions" class="tab-inactive px-4 py-2 text-sm font-semibold transition">📋 Pending Transactions</button>
     </div>
 
@@ -103,7 +102,7 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 3: PROGRAMS ==================== -->
+    <!-- ==================== TAB 3: PROGRAMS (UPDATED) ==================== -->
     <div id="section-programs" class="hidden space-y-6">
       <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
         <div class="flex justify-between items-center mb-4">
@@ -116,7 +115,7 @@
           </button>
         </div>
 
-        <!-- Add Program Form -->
+        <!-- Add Program Form (with program_type dropdown) -->
         <form id="programForm" onsubmit="handleCreateProgram(event)" class="hidden bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 space-y-4">
           <h4 class="font-bold text-sm text-gray-700 border-b pb-2">Create Investment Program</h4>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -136,6 +135,14 @@
               <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Lock Duration (Days)</label>
               <input type="number" id="progDuration" required min="1" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
             </div>
+            <!-- ✅ Program Type Dropdown -->
+            <div>
+              <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Program Type</label>
+              <select id="progType" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
+                <option value="locked">Locked (Earnings at Maturity)</option>
+                <option value="flexi">Flexi (Daily Earnings Withdrawable)</option>
+              </select>
+            </div>
             <div class="md:col-span-2">
               <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Image URL (Optional)</label>
               <input type="url" id="progImage" placeholder="https://..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600">
@@ -151,7 +158,7 @@
           </div>
         </form>
 
-        <!-- Programs Table -->
+        <!-- Programs Table (with Type column) -->
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
@@ -161,11 +168,12 @@
                 <th class="p-3">Price</th>
                 <th class="p-3">ROI</th>
                 <th class="p-3">Duration</th>
+                <th class="p-3">Type</th>
                 <th class="p-3">Actions</th>
               </tr>
             </thead>
             <tbody id="programsTableBody" class="text-sm divide-y">
-              <tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>
+              <tr><td colspan="7" class="p-4 text-center text-gray-500">Loading programs...</td></tr>
             </tbody>
           </table>
         </div>
@@ -252,7 +260,7 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 6: PENDING TRANSACTIONS (NEW) ==================== -->
+    <!-- ==================== TAB 6: PENDING TRANSACTIONS ==================== -->
     <div id="section-transactions" class="hidden space-y-6">
       <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
         <div class="flex justify-between items-center mb-4">
@@ -516,35 +524,41 @@
         }
       };
 
-      // ---------- Programs ----------
+      // ---------- Programs (UPDATED) ----------
       async function loadPrograms() {
         const tbody = document.getElementById('programsTableBody');
-        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Loading programs...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">Loading programs...</td></tr>';
         try {
           const res = await fetch(`${API_BASE}/investments/programs`);
           if (!res.ok) throw new Error('Failed to fetch programs');
           const data = await res.json();
           const programs = Array.isArray(data) ? data : (data.programs || data.data || []);
           if (programs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No programs yet.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-400">No programs yet.</td></tr>';
             return;
           }
-          tbody.innerHTML = programs.map(p => `
-            <tr class="hover:bg-gray-50">
-              <td class="p-3">${p.id}</td>
-              <td class="p-3 font-semibold">${p.title}</td>
-              <td class="p-3">UGX ${Number(p.share_price).toLocaleString()}</td>
-              <td class="p-3 text-emerald-700 font-bold">+${p.roi_percentage}%</td>
-              <td class="p-3">${p.duration_days} Days</td>
-              <td class="p-3">
-                <button onclick="deleteProgram(${p.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
-                  Delete
-                </button>
-              </td>
-            </tr>
-          `).join('');
+          tbody.innerHTML = programs.map(p => {
+            const typeBadge = p.program_type === 'flexi'
+              ? '<span class="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800">Flexi</span>'
+              : '<span class="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800">Locked</span>';
+            return `
+              <tr class="hover:bg-gray-50">
+                <td class="p-3">${p.id}</td>
+                <td class="p-3 font-semibold">${p.title}</td>
+                <td class="p-3">UGX ${Number(p.share_price).toLocaleString()}</td>
+                <td class="p-3 text-emerald-700 font-bold">+${p.roi_percentage}%</td>
+                <td class="p-3">${p.duration_days} Days</td>
+                <td class="p-3">${typeBadge}</td>
+                <td class="p-3">
+                  <button onclick="deleteProgram(${p.id})" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-semibold transition">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('');
         } catch (err) {
-          tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">${err.message}</td></tr>`;
         }
       }
 
@@ -562,6 +576,7 @@
           share_price: parseFloat(document.getElementById('progPrice').value),
           roi_percentage: parseFloat(document.getElementById('progRoi').value),
           duration_days: parseInt(document.getElementById('progDuration').value),
+          program_type: document.getElementById('progType').value,
           image_url: document.getElementById('progImage').value.trim() || null,
           description: document.getElementById('progDesc').value.trim() || null
         };
