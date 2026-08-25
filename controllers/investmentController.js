@@ -104,7 +104,6 @@ exports.purchaseShares = async (req, res) => {
     endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
     const dailyEarning = expectedPayout / program.duration_days;
 
-    // Insert investment with pending_earnings = 0
     await connection.execute(
       `INSERT INTO user_investments (
         user_id, program_id, shares_purchased, total_invested, 
@@ -114,7 +113,6 @@ exports.purchaseShares = async (req, res) => {
       [userId, program.id, sharesToBuy, totalCost, expectedPayout, dailyEarning, startDate, endDate, startDate]
     );
 
-    // Record transaction
     const ref = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status) 
@@ -144,17 +142,19 @@ exports.purchaseShares = async (req, res) => {
 exports.getMyInvestments = async (req, res) => {
   try {
     const userId = req.user.id;
+    
+    // ✅ Use COALESCE to handle missing program_type gracefully
     const [rows] = await db.execute(
       `SELECT 
         ui.id, 
         p.title, 
-        p.program_type,
+        COALESCE(p.program_type, 'locked') AS program_type,
         ui.shares_purchased, 
         ui.total_invested, 
         p.roi_percentage, 
         ui.expected_payout,
         ui.daily_earning,
-        ui.pending_earnings,
+        COALESCE(ui.pending_earnings, 0) AS pending_earnings,
         ui.start_date, 
         ui.end_date, 
         ui.status,
@@ -175,11 +175,9 @@ exports.getMyInvestments = async (req, res) => {
         let totalPayout = inv.total_invested;
 
         if (inv.program_type === 'flexi') {
-          // For flexi, earnings have been paid to wallet; we show total accumulated so far
           currentEarnings = inv.daily_earning * daysElapsed;
-          totalPayout = inv.total_invested + currentEarnings; // expected total (already paid daily)
+          totalPayout = inv.total_invested + currentEarnings;
         } else {
-          // For locked, earnings accumulate in pending_earnings
           currentEarnings = parseFloat(inv.pending_earnings) || 0;
           totalPayout = inv.total_invested + currentEarnings;
         }
@@ -215,7 +213,7 @@ exports.matureInvestments = async (req, res) => {
       `SELECT 
         ui.id, ui.user_id, ui.total_invested, ui.expected_payout, 
         ui.daily_earning, ui.pending_earnings, ui.end_date,
-        p.program_type
+        COALESCE(p.program_type, 'locked') AS program_type
        FROM user_investments ui
        JOIN investment_programs p ON ui.program_id = p.id
        WHERE ui.status = 'active' AND ui.end_date <= NOW()`
@@ -232,21 +230,17 @@ exports.matureInvestments = async (req, res) => {
     for (const inv of matured) {
       let payoutAmount = 0;
       if (inv.program_type === 'flexi') {
-        // For flexi, earnings were already credited daily; only return principal
         payoutAmount = parseFloat(inv.total_invested);
       } else {
-        // For locked, credit principal + accumulated pending_earnings
         const pending = parseFloat(inv.pending_earnings) || 0;
         payoutAmount = parseFloat(inv.total_invested) + pending;
       }
 
-      // Credit to wallet
       await connection.execute(
         `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
         [payoutAmount, inv.user_id]
       );
 
-      // Mark investment as matured
       await connection.execute(
         `UPDATE user_investments SET status = 'matured', matured_at = NOW() WHERE id = ?`,
         [inv.id]
