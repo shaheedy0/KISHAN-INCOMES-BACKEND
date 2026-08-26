@@ -3,7 +3,7 @@ const db = require('../config/db');
 
 const initPayoutCron = () => {
   // Run every 5 minutes for testing (change to '0 0 * * *' for midnight)
-  cron.schedule('*/5 * * * *', async () => {
+  cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Running daily payout job...');
 
     let connection;

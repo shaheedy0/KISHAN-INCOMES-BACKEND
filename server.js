@@ -7,6 +7,9 @@ require('dotenv').config();
 
 const app = express();
 
+// ✅ Fix for X-Forwarded-For validation error (trust Render's proxy)
+app.set('trust proxy', 1);
+
 // ===== SECURITY MIDDLEWARE =====
 app.use(
   helmet({
@@ -108,6 +111,7 @@ app.get('/admin', (req, res) => {
   res.redirect('/admin.html');
 });
 
+// ===== START CRON JOB =====
 try {
   const initPayoutCron = require('./jobs/payoutCron');
   initPayoutCron();
