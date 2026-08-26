@@ -108,9 +108,13 @@ app.get('/admin', (req, res) => {
   res.redirect('/admin.html');
 });
 
-// ===== START CRON JOB =====
-const initPayoutCron = require('./jobs/payoutCron'); // ✅ Correct path
-initPayoutCron();
+try {
+  const initPayoutCron = require('./jobs/payoutCron');
+  initPayoutCron();
+  console.log('✅ Cron job started successfully');
+} catch (error) {
+  console.error('❌ Failed to start cron job:', error.message);
+}
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

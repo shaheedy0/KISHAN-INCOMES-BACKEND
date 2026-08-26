@@ -2,7 +2,8 @@ const cron = require('node-cron');
 const db = require('../config/db');
 
 const initPayoutCron = () => {
-  cron.schedule('0 0 * * *', async () => {
+  // Run every 5 minutes for testing (change to '0 0 * * *' for midnight)
+  cron.schedule('*/5 * * * *', async () => {
     console.log('[CRON] Running daily payout job...');
 
     let connection;
@@ -31,15 +32,12 @@ const initPayoutCron = () => {
         console.log(`[CRON] Processing ${investments.length} investments for daily earnings...`);
         for (const inv of investments) {
           const daysToCredit = inv.days_to_credit || 0;
-          console.log(`[CRON] Investment ${inv.id}: days_to_credit = ${daysToCredit}, daily_earning = ${inv.daily_earning}`);
-          
           if (daysToCredit <= 0) continue;
 
           const amountToCredit = inv.daily_earning * daysToCredit;
           if (amountToCredit <= 0) continue;
 
           if (inv.program_type === 'flexi') {
-            // Credit to wallet immediately
             await connection.execute(
               `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
               [amountToCredit, inv.user_id]
@@ -50,9 +48,8 @@ const initPayoutCron = () => {
                VALUES (?, ?, 'SYSTEM', 'DAILY', ?, 'daily_earning', 'completed', ?)`,
               [inv.user_id, ref, amountToCredit, `Daily earnings for Investment #${inv.id}`]
             );
-            console.log(`[CRON] Credited UGX ${amountToCredit} daily earnings to user ${inv.user_id} (Flexi investment ${inv.id})`);
+            console.log(`[CRON] Credited UGX ${amountToCredit} to user ${inv.user_id} (Flexi)`);
           } else {
-            // Locked: add to pending_earnings
             await connection.execute(
               `UPDATE user_investments SET pending_earnings = pending_earnings + ? WHERE id = ?`,
               [amountToCredit, inv.id]
@@ -60,31 +57,16 @@ const initPayoutCron = () => {
             console.log(`[CRON] Added UGX ${amountToCredit} to pending earnings for investment ${inv.id}`);
           }
 
-          // Update last_credited_date to today
           await connection.execute(
             `UPDATE user_investments SET last_credited_date = CURDATE() WHERE id = ?`,
             [inv.id]
           );
         }
-
-        // ✅ COMMIT daily earnings updates
-        await connection.commit();
-        console.log('[CRON] Daily earnings committed.');
       } else {
         console.log('[CRON] No daily earnings to process today.');
       }
 
       // ========== 2. MATURE INVESTMENTS ==========
-      // Start a new transaction for maturity (or continue the same)
-      // We'll keep the same connection; if we already committed, we need to start a new transaction.
-      // To be safe, we'll commit after daily earnings and then start a new transaction for maturity.
-      // But we can also keep the transaction open and commit at the end – but if maturity fails, we'd roll back daily earnings too.
-      // Better: commit daily earnings first, then handle maturity separately.
-
-      // Since we already committed, we need to start a new transaction for maturity.
-      // We'll use the same connection but begin a new transaction.
-      await connection.beginTransaction();
-
       const [matured] = await connection.execute(
         `SELECT ui.id, ui.user_id, ui.total_invested, ui.expected_payout, ui.daily_earning, ui.pending_earnings, ui.end_date,
                 p.program_type
@@ -123,30 +105,20 @@ const initPayoutCron = () => {
 
           console.log(`[CRON] Matured investment ${inv.id}, credited UGX ${payoutAmount} to user ${inv.user_id}`);
         }
-
-        // ✅ COMMIT maturity updates
-        await connection.commit();
-        console.log('[CRON] Maturity updates committed.');
       } else {
         console.log('[CRON] No investments to mature today.');
-        // If nothing to mature, we still need to commit (or rollback) – but we haven't changed anything.
-        // We'll just commit to close the transaction.
-        await connection.commit();
       }
 
       connection.release();
       console.log('[CRON] Daily payout job completed.');
 
     } catch (error) {
-      if (connection) {
-        await connection.rollback();
-        connection.release();
-      }
-      console.error('[CRON] Error during payout job:', error);
+      if (connection) connection.release();
+      console.error('[CRON] Error:', error);
     }
   });
 
-  console.log('[CRON] Daily payout job scheduled to run at midnight.');
+  console.log('[CRON] Daily payout job scheduled to run every 5 minutes for testing.');
 };
 
 module.exports = initPayoutCron;
