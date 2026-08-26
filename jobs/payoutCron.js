@@ -10,10 +10,17 @@ const initPayoutCron = () => {
       connection = await db.getConnection();
 
       // ========== 1. CREDIT DAILY EARNINGS ==========
-      // Fetch active investments with program type
+      // Calculate days since last credited using DATEDIFF in SQL
       const [investments] = await connection.execute(
-        `SELECT ui.id, ui.user_id, ui.daily_earning, ui.last_credited_date, ui.start_date, ui.end_date,
-                p.program_type
+        `SELECT 
+          ui.id, 
+          ui.user_id, 
+          ui.daily_earning, 
+          ui.last_credited_date, 
+          ui.start_date, 
+          ui.end_date,
+          p.program_type,
+          DATEDIFF(CURDATE(), COALESCE(ui.last_credited_date, ui.start_date)) AS days_to_credit
          FROM user_investments ui
          JOIN investment_programs p ON ui.program_id = p.id
          WHERE ui.status = 'active'
@@ -24,21 +31,19 @@ const initPayoutCron = () => {
       if (investments.length > 0) {
         console.log(`[CRON] Processing ${investments.length} investments for daily earnings...`);
         for (const inv of investments) {
-          let lastDate = inv.last_credited_date || inv.start_date;
-          const today = new Date();
-          const daysToCredit = Math.floor((today - new Date(lastDate)) / (1000 * 60 * 60 * 24));
+          const daysToCredit = inv.days_to_credit || 0;
+          console.log(`[CRON] Investment ${inv.id}: days_to_credit = ${daysToCredit}, daily_earning = ${inv.daily_earning}`);
+          
           if (daysToCredit <= 0) continue;
 
           const amountToCredit = inv.daily_earning * daysToCredit;
           if (amountToCredit <= 0) continue;
 
           if (inv.program_type === 'flexi') {
-            // Credit to wallet immediately
             await connection.execute(
               `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
               [amountToCredit, inv.user_id]
             );
-            // Record transaction
             const ref = `DAILY-${inv.id}-${Date.now()}`;
             await connection.execute(
               `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status, external_ref)
@@ -47,7 +52,6 @@ const initPayoutCron = () => {
             );
             console.log(`[CRON] Credited UGX ${amountToCredit} daily earnings to user ${inv.user_id} (Flexi investment ${inv.id})`);
           } else {
-            // Locked: add to pending_earnings
             await connection.execute(
               `UPDATE user_investments SET pending_earnings = pending_earnings + ? WHERE id = ?`,
               [amountToCredit, inv.id]
@@ -55,7 +59,6 @@ const initPayoutCron = () => {
             console.log(`[CRON] Added UGX ${amountToCredit} to pending earnings for investment ${inv.id}`);
           }
 
-          // Update last_credited_date to today
           await connection.execute(
             `UPDATE user_investments SET last_credited_date = CURDATE() WHERE id = ?`,
             [inv.id]
@@ -85,7 +88,6 @@ const initPayoutCron = () => {
             payoutAmount = parseFloat(inv.total_invested) + pending;
           }
 
-          // Credit principal + any pending earnings
           await connection.execute(
             `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
             [payoutAmount, inv.user_id]
