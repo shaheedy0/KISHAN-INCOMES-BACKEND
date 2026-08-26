@@ -2,8 +2,8 @@ const cron = require('node-cron');
 const db = require('../config/db');
 
 const initPayoutCron = () => {
-  // Run every 5 minutes for testing (change to '0 0 * * *' for midnight)
-  cron.schedule('0 0 * * *', async () => {
+  // For production, change to '0 0 * * *' for midnight
+  cron.schedule('*/5 * * * *', async () => {
     console.log('[CRON] Running daily payout job...');
 
     let connection;
@@ -11,6 +11,7 @@ const initPayoutCron = () => {
       connection = await db.getConnection();
 
       // ========== 1. CREDIT DAILY EARNINGS ==========
+      // ✅ Include purchase day: if last_credited_date is NULL, credit from start_date inclusive.
       const [investments] = await connection.execute(
         `SELECT 
           ui.id, 
@@ -20,24 +21,32 @@ const initPayoutCron = () => {
           ui.start_date, 
           ui.end_date,
           p.program_type,
-          DATEDIFF(CURDATE(), COALESCE(ui.last_credited_date, ui.start_date)) AS days_to_credit
+          CASE 
+            WHEN ui.last_credited_date IS NULL THEN DATEDIFF(CURDATE(), DATE(ui.start_date)) + 1
+            ELSE DATEDIFF(CURDATE(), ui.last_credited_date)
+          END AS days_to_credit
          FROM user_investments ui
          JOIN investment_programs p ON ui.program_id = p.id
          WHERE ui.status = 'active'
            AND (ui.last_credited_date IS NULL OR ui.last_credited_date < CURDATE())
-           AND ui.start_date <= CURDATE()`
+           AND ui.start_date <= CURDATE()
+           AND ui.end_date > CURDATE()  -- Only active (not yet matured)
+         ORDER BY ui.id`
       );
 
       if (investments.length > 0) {
         console.log(`[CRON] Processing ${investments.length} investments for daily earnings...`);
         for (const inv of investments) {
-          const daysToCredit = inv.days_to_credit || 0;
+          // Ensure we don't credit beyond the end date (optional but safe)
+          const totalDays = Math.ceil((new Date(inv.end_date) - new Date(inv.start_date)) / (1000*60*60*24));
+          let daysToCredit = Math.min(inv.days_to_credit, totalDays - 1); // cap at remaining days
           if (daysToCredit <= 0) continue;
 
           const amountToCredit = inv.daily_earning * daysToCredit;
           if (amountToCredit <= 0) continue;
 
           if (inv.program_type === 'flexi') {
+            // Credit to wallet immediately
             await connection.execute(
               `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
               [amountToCredit, inv.user_id]
@@ -48,8 +57,9 @@ const initPayoutCron = () => {
                VALUES (?, ?, 'SYSTEM', 'DAILY', ?, 'daily_earning', 'completed', ?)`,
               [inv.user_id, ref, amountToCredit, `Daily earnings for Investment #${inv.id}`]
             );
-            console.log(`[CRON] Credited UGX ${amountToCredit} to user ${inv.user_id} (Flexi)`);
+            console.log(`[CRON] Credited UGX ${amountToCredit} daily earnings to user ${inv.user_id} (Flexi investment ${inv.id})`);
           } else {
+            // Locked: add to pending_earnings
             await connection.execute(
               `UPDATE user_investments SET pending_earnings = pending_earnings + ? WHERE id = ?`,
               [amountToCredit, inv.id]
@@ -57,6 +67,7 @@ const initPayoutCron = () => {
             console.log(`[CRON] Added UGX ${amountToCredit} to pending earnings for investment ${inv.id}`);
           }
 
+          // Update last_credited_date to today
           await connection.execute(
             `UPDATE user_investments SET last_credited_date = CURDATE() WHERE id = ?`,
             [inv.id]
