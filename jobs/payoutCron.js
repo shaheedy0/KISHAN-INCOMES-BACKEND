@@ -2,7 +2,6 @@ const cron = require('node-cron');
 const db = require('../config/db');
 
 const initPayoutCron = () => {
-  // ⏰ Runs every 5 minutes (permanent)
   cron.schedule('*/5 * * * *', async () => {
     console.log('[CRON] Running daily payout job...');
 
@@ -11,6 +10,7 @@ const initPayoutCron = () => {
       connection = await db.getConnection();
 
       // ========== 1. CREDIT DAILY EARNINGS ==========
+      // ✅ Removed last_credited_date < CURDATE() condition – relies on DATEDIFF
       const [investments] = await connection.execute(
         `SELECT 
           ui.id, 
@@ -27,7 +27,6 @@ const initPayoutCron = () => {
          FROM user_investments ui
          JOIN investment_programs p ON ui.program_id = p.id
          WHERE ui.status = 'active'
-           AND (ui.last_credited_date IS NULL OR ui.last_credited_date < CURDATE())
            AND ui.start_date <= CURDATE()
            AND ui.end_date > CURDATE()`
       );
@@ -61,13 +60,14 @@ const initPayoutCron = () => {
             console.log(`[CRON] Added UGX ${amountToCredit} to pending earnings for investment ${inv.id}`);
           }
 
+          // Update last_credited_date to today (so the next run will see 0 days)
           await connection.execute(
             `UPDATE user_investments SET last_credited_date = CURDATE() WHERE id = ?`,
             [inv.id]
           );
         }
       } else {
-        console.log('[CRON] No daily earnings to process today.');
+        console.log('[CRON] No investments to process.');
       }
 
       // ========== 2. MATURE INVESTMENTS ==========
