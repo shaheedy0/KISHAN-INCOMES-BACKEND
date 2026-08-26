@@ -104,13 +104,14 @@ exports.purchaseShares = async (req, res) => {
     endDate.setDate(endDate.getDate() + parseInt(program.duration_days, 10));
     const dailyEarning = expectedPayout / program.duration_days;
 
+    // ✅ FIX: Set last_credited_date = NULL so the cron can credit the purchase day
     await connection.execute(
       `INSERT INTO user_investments (
         user_id, program_id, shares_purchased, total_invested, 
         expected_payout, daily_earning, pending_earnings,
         start_date, end_date, status, last_credited_date
-      ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'active', ?)`,
-      [userId, program.id, sharesToBuy, totalCost, expectedPayout, dailyEarning, startDate, endDate, startDate]
+      ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'active', NULL)`,
+      [userId, program.id, sharesToBuy, totalCost, expectedPayout, dailyEarning, startDate, endDate]
     );
 
     const ref = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -143,7 +144,6 @@ exports.getMyInvestments = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // ✅ Use COALESCE to handle missing program_type gracefully
     const [rows] = await db.execute(
       `SELECT 
         ui.id, 
