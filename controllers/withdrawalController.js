@@ -27,7 +27,7 @@ exports.requestWithdrawal = async (req, res) => {
     }
 
     const withdrawAmount = parseFloat(amount);
-    const MIN_WITHDRAWAL = 1000;
+    const MIN_WITHDRAWAL = 5000;
 
     if (isNaN(withdrawAmount) || withdrawAmount < MIN_WITHDRAWAL) {
       return res.status(400).json({ 
