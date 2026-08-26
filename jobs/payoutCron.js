@@ -10,7 +10,6 @@ const initPayoutCron = () => {
       connection = await db.getConnection();
 
       // ========== 1. CREDIT DAILY EARNINGS ==========
-      // Calculate days since last credited using DATEDIFF in SQL
       const [investments] = await connection.execute(
         `SELECT 
           ui.id, 
@@ -40,6 +39,7 @@ const initPayoutCron = () => {
           if (amountToCredit <= 0) continue;
 
           if (inv.program_type === 'flexi') {
+            // Credit to wallet immediately
             await connection.execute(
               `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
               [amountToCredit, inv.user_id]
@@ -52,6 +52,7 @@ const initPayoutCron = () => {
             );
             console.log(`[CRON] Credited UGX ${amountToCredit} daily earnings to user ${inv.user_id} (Flexi investment ${inv.id})`);
           } else {
+            // Locked: add to pending_earnings
             await connection.execute(
               `UPDATE user_investments SET pending_earnings = pending_earnings + ? WHERE id = ?`,
               [amountToCredit, inv.id]
@@ -59,16 +60,31 @@ const initPayoutCron = () => {
             console.log(`[CRON] Added UGX ${amountToCredit} to pending earnings for investment ${inv.id}`);
           }
 
+          // Update last_credited_date to today
           await connection.execute(
             `UPDATE user_investments SET last_credited_date = CURDATE() WHERE id = ?`,
             [inv.id]
           );
         }
+
+        // ✅ COMMIT daily earnings updates
+        await connection.commit();
+        console.log('[CRON] Daily earnings committed.');
       } else {
         console.log('[CRON] No daily earnings to process today.');
       }
 
       // ========== 2. MATURE INVESTMENTS ==========
+      // Start a new transaction for maturity (or continue the same)
+      // We'll keep the same connection; if we already committed, we need to start a new transaction.
+      // To be safe, we'll commit after daily earnings and then start a new transaction for maturity.
+      // But we can also keep the transaction open and commit at the end – but if maturity fails, we'd roll back daily earnings too.
+      // Better: commit daily earnings first, then handle maturity separately.
+
+      // Since we already committed, we need to start a new transaction for maturity.
+      // We'll use the same connection but begin a new transaction.
+      await connection.beginTransaction();
+
       const [matured] = await connection.execute(
         `SELECT ui.id, ui.user_id, ui.total_invested, ui.expected_payout, ui.daily_earning, ui.pending_earnings, ui.end_date,
                 p.program_type
@@ -107,15 +123,25 @@ const initPayoutCron = () => {
 
           console.log(`[CRON] Matured investment ${inv.id}, credited UGX ${payoutAmount} to user ${inv.user_id}`);
         }
+
+        // ✅ COMMIT maturity updates
+        await connection.commit();
+        console.log('[CRON] Maturity updates committed.');
       } else {
         console.log('[CRON] No investments to mature today.');
+        // If nothing to mature, we still need to commit (or rollback) – but we haven't changed anything.
+        // We'll just commit to close the transaction.
+        await connection.commit();
       }
 
       connection.release();
       console.log('[CRON] Daily payout job completed.');
 
     } catch (error) {
-      if (connection) connection.release();
+      if (connection) {
+        await connection.rollback();
+        connection.release();
+      }
       console.error('[CRON] Error during payout job:', error);
     }
   });
