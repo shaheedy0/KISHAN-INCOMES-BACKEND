@@ -14,7 +14,7 @@ function formatUGPhoneNumber(phone) {
   return cleaned;
 }
 
-// ===== REQUEST WITHDRAWAL (PENDING) =====
+// ===== REQUEST WITHDRAWAL (PENDING, WITH INVESTMENT CHECK) =====
 exports.requestWithdrawal = async (req, res) => {
   let connection;
 
@@ -37,6 +37,19 @@ exports.requestWithdrawal = async (req, res) => {
 
     if (!['MTN', 'AIRTEL'].includes(network.toUpperCase())) {
       return res.status(400).json({ message: 'Network must be either MTN or AIRTEL.' });
+    }
+
+    // ✅ NEW: Check if user has ever purchased an investment
+    const [investmentCheck] = await db.execute(
+      'SELECT COUNT(*) AS count FROM user_investments WHERE user_id = ?',
+      [userId]
+    );
+
+    if (investmentCheck[0].count === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'You must purchase an investment plan before you can withdraw. Invest now to unlock withdrawals!'
+      });
     }
 
     const formattedPhone = formatUGPhoneNumber(phone_number);
@@ -135,7 +148,7 @@ exports.getWithdrawalHistory = async (req, res) => {
   }
 };
 
-// ===== TRANSFER BONUS TO MAIN WALLET (FIXED: uses 'deposit' type) =====
+// ===== TRANSFER BONUS TO MAIN WALLET =====
 exports.transferBonusToMain = async (req, res) => {
   let connection;
   try {
@@ -160,13 +173,11 @@ exports.transferBonusToMain = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No bonus balance to transfer.' });
     }
 
-    // Move bonus to main balance
     await connection.execute(
       `UPDATE wallets SET balance = balance + ?, bonus_balance = bonus_balance - ? WHERE user_id = ?`,
       [bonusBalance, bonusBalance, userId]
     );
 
-    // Record transaction – using 'deposit' as transaction_type (existing ENUM value)
     const ref = `BONUS-TRANSFER-${Date.now()}`;
     await connection.execute(
       `INSERT INTO transactions (user_id, reference, phone_number, network, amount, transaction_type, status, external_ref)

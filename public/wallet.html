@@ -783,16 +783,38 @@
       //  WITHDRAWAL MODAL
       // =========================================================
       window.openWithdrawalModal = function() {
-        const modal = document.getElementById('withdrawalModal');
-        modal.classList.remove('hidden');
-        showWithdrawAlert('', 'hidden');
-        document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
-        const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
-        if (user.phone_number) {
-          let rawPhone = user.phone_number.replace(/^256/, '');
-          document.getElementById('withdrawalPhone').value = rawPhone;
-        }
-      };
+  // Check if user has investments before opening withdrawal modal
+  const token = localStorage.getItem('kishan_token');
+  const API_BASE = 'https://kishan-incomes.onrender.com/api'; // Already defined globally, but use if needed
+
+  fetch(`${API_BASE}/investments/my-investments`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  .then(res => res.json())
+  .then(data => {
+    // If no investments, block withdrawal
+    if (!data || data.length === 0) {
+      alert('You must purchase an investment plan before you can withdraw. Invest now to unlock withdrawals!');
+      return;
+    }
+    // Proceed with opening modal
+    const modal = document.getElementById('withdrawalModal');
+    modal.classList.remove('hidden');
+    showWithdrawAlert('', 'hidden');
+    document.getElementById('modalAvailableBalance').innerText = document.getElementById('balance-display').innerText;
+    const user = JSON.parse(localStorage.getItem('kishan_user') || '{}');
+    if (user.phone_number) {
+      let rawPhone = user.phone_number.replace(/^256/, '');
+      document.getElementById('withdrawalPhone').value = rawPhone;
+    }
+  })
+  .catch(err => {
+    console.error('Error checking investments:', err);
+    // Fallback: allow withdrawal if API fails (or you can block)
+    // We'll block to be safe.
+    alert('Unable to verify your investment status. Please try again later.');
+  });
+};
 
       window.closeWithdrawalModal = function() {
         document.getElementById('withdrawalModal').classList.add('hidden');
