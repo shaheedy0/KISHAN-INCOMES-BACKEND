@@ -51,12 +51,15 @@ exports.register = async (req, res) => {
 
     const userId = result.insertId;
 
-    if (userId) {
-      try {
-        await db.execute('INSERT INTO wallets (user_id, balance, bonus_balance) VALUES (?, 0.00, 0.00)', [userId]);
-      } catch (wErr) {
-        console.warn('Wallet creation note:', wErr.message);
-      }
+    // 5. Create wallet record with sign-up bonus
+if (userId) {
+  try {
+    const SIGNUP_BONUS = 2500;
+    await db.execute('INSERT INTO wallets (user_id, balance, bonus_balance) VALUES (?, ?, 0.00)', [userId, SIGNUP_BONUS]);
+    console.log(`[Signup Bonus] User ${userId} received UGX ${SIGNUP_BONUS} sign-up bonus.`);
+  } catch (wErr) {
+    console.warn('Wallet creation note:', wErr.message);
+  }
     }
 
     return res.status(201).json({
